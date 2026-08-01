@@ -8,11 +8,11 @@ export async function GET(request) {
   const origin = requestUrl.origin;
 
   if (code) {
-    const cookieStore = await cookies(); // ✅ Añadido 'await' (recomendado en Next.js 13.5+)
+    const cookieStore = await cookies();
 
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,       // ✅ Usa variable de entorno
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,  // ✅ Usa variable de entorno (¡NUNCA la clave real aquí!)
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name) {
