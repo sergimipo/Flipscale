@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function GET(req) {
   try {
+    // ✅ Inicializar DENTRO de la función
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const hasSubscription = searchParams.get('hasSubscription') === 'true';
@@ -15,17 +16,10 @@ export async function GET(req) {
       return Response.json({ error: 'Falta userId' }, { status: 400 });
     }
 
-    // Si tiene suscripción activa, permitir todo
     if (hasSubscription) {
-      return Response.json({
-        allowed: true,
-        remaining: 999999,
-        count: 0,
-        plan: 'premium'
-      });
+      return Response.json({ allowed: true, remaining: 999999, count: 0, plan: 'premium' });
     }
 
-    // Usuario gratuito: verificar usos del mes actual
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -39,17 +33,11 @@ export async function GET(req) {
 
     if (error) {
       console.error('Error consultando usage_logs:', error);
-      // Si hay error, permitir por defecto (mejor que bloquear)
-      return Response.json({
-        allowed: true,
-        remaining: 5,
-        count: 0,
-        plan: 'free'
-      });
+      return Response.json({ allowed: true, remaining: 5, count: 0, plan: 'free' });
     }
 
     const count = usageData ? usageData.length : 0;
-    const FREE_LIMIT = 5; // 5 usos gratuitos al mes
+    const FREE_LIMIT = 5;
     const remaining = Math.max(0, FREE_LIMIT - count);
 
     return Response.json({
@@ -68,13 +56,18 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    // ✅ Inicializar DENTRO de la función
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
     const { userId } = await req.json();
 
     if (!userId) {
       return Response.json({ error: 'Falta userId' }, { status: 400 });
     }
 
-    // Registrar el uso en la base de datos
     const { error } = await supabase
       .from('usage_logs')
       .insert([{ user_id: userId, action: 'remove_metadata' }]);
