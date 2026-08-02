@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 
+// ✅ 1. AUMENTAR EL LÍMITE DE TAMAÑO A 10MB
+// Esto evita que Next.js bloquee la petición con "Request Entity Too Large"
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 export async function POST(request) {
   try {
     const formData = await request.formData();
@@ -18,7 +28,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Validar tamaño (máximo 10MB para Vercel Hobby)
+    // Validar tamaño (máximo 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       return NextResponse.json({ 
@@ -29,29 +39,17 @@ export async function POST(request) {
     // Convertir el archivo a buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Usar sharp para eliminar TODOS los metadatos
+    // ✅ 2. ELIMINAR METADATOS DE VERDAD
+    // Al NO usar .withMetadata(), sharp elimina automáticamente EXIF, GPS, cámara, etc.
+    // Usamos .rotate() para corregir la orientación de la imagen antes de borrar los datos EXIF.
     const cleanedBuffer = await sharp(buffer)
-      .withMetadata() // Mantiene los metadatos básicos necesarios
+      .rotate() 
       .toBuffer();
-
-    // Crear un nuevo buffer sin metadatos EXIF/IPTC/XMP
-    const finalBuffer = await sharp(buffer)
-      .jpeg({ quality: 95 }) // Para JPEG
-      .png({ compressionLevel: 9 }) // Para PNG
-      .webp({ quality: 95 }) // Para WebP
-      .toBuffer({ resolveWithObject: true })
-      .then(({ data, info }) => {
-        // Reconstruir la imagen sin metadatos
-        return sharp(data)
-          .withMetadata()
-          .toBuffer();
-      });
 
     // Determinar el tipo MIME y extensión
     let mimeType = file.type;
     let extension = file.name.split('.').pop().toLowerCase();
 
-    // Asegurar que la extensión coincida con el tipo
     if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
       mimeType = 'image/jpeg';
       extension = 'jpg';
@@ -68,7 +66,7 @@ export async function POST(request) {
     const cleanFileName = `${originalName}_clean.${extension}`;
 
     // Devolver el archivo limpio
-    return new NextResponse(finalBuffer, {
+    return new NextResponse(cleanedBuffer, {
       headers: {
         'Content-Type': mimeType,
         'Content-Disposition': `attachment; filename="${cleanFileName}"`,
@@ -81,12 +79,10 @@ export async function POST(request) {
     
     let errorMessage = 'Error al procesar la imagen';
     
-    if (error.message.includes('Input buffer contains unsupported image format')) {
+    if (error.message.includes('unsupported image format')) {
       errorMessage = 'Formato de imagen no soportado. Usa JPEG, PNG o WebP.';
-    } else if (error.message.includes('Premature end of JPEG file')) {
-      errorMessage = 'El archivo JPEG está corrupto o incompleto.';
-    } else if (error.message.includes('Image too large')) {
-      errorMessage = 'La imagen es demasiado grande para procesar.';
+    } else if (error.message.includes('Premature end')) {
+      errorMessage = 'El archivo está corrupto o incompleto.';
     }
     
     return NextResponse.json({ error: errorMessage }, { status: 500 });
