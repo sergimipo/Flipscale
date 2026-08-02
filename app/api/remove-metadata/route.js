@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 
-// ✅ 1. AUMENTAR EL LÍMITE DE TAMAÑO A 10MB
-// Esto evita que Next.js bloquee la petición con "Request Entity Too Large"
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
 export async function POST(request) {
   try {
     const formData = await request.formData();
@@ -28,22 +18,21 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Validar tamaño (máximo 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Validar tamaño (Vercel limita a ~4.5MB en plan Hobby)
+    const maxSize = 4 * 1024 * 1024; // 4MB para estar seguros
     if (file.size > maxSize) {
       return NextResponse.json({ 
-        error: 'El archivo es demasiado grande. Máximo 10MB.' 
-      }, { status: 400 });
+        error: 'La imagen es demasiado grande. El límite es 4MB. Por favor, comprímela antes de subirla.' 
+      }, { status: 413 });
     }
 
     // Convertir el archivo a buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // ✅ 2. ELIMINAR METADATOS DE VERDAD
-    // Al NO usar .withMetadata(), sharp elimina automáticamente EXIF, GPS, cámara, etc.
-    // Usamos .rotate() para corregir la orientación de la imagen antes de borrar los datos EXIF.
+    // ✅ Eliminar metadatos de verdad (sin .withMetadata())
+    // .rotate() corrige la orientación de la imagen usando el EXIF antes de borrarlo
     const cleanedBuffer = await sharp(buffer)
-      .rotate() 
+      .rotate()
       .toBuffer();
 
     // Determinar el tipo MIME y extensión
@@ -78,11 +67,8 @@ export async function POST(request) {
     console.error('❌ Error en remove-metadata:', error);
     
     let errorMessage = 'Error al procesar la imagen';
-    
     if (error.message.includes('unsupported image format')) {
-      errorMessage = 'Formato de imagen no soportado. Usa JPEG, PNG o WebP.';
-    } else if (error.message.includes('Premature end')) {
-      errorMessage = 'El archivo está corrupto o incompleto.';
+      errorMessage = 'Formato no soportado. Usa JPEG, PNG o WebP.';
     }
     
     return NextResponse.json({ error: errorMessage }, { status: 500 });
