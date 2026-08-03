@@ -7,14 +7,12 @@ export async function POST(req) {
       return Response.json({ error: "Falta la clave de API de OpenRouter" }, { status: 500 });
     }
 
-    // Mapeo de idiomas para construir el prompt dinámicamente
     const langMap = {
       es: { flag: '🇪🇸', name: 'Español', priceLabel: 'Precio' },
       en: { flag: '🇬🇧', name: 'English', priceLabel: 'Price' },
       fr: { flag: '🇫🇷', name: 'Français', priceLabel: 'Prix' }
     };
 
-    // Construir las instrucciones de formato solo para los idiomas seleccionados
     let formatInstructions = "FORMATO OBLIGATORIO DE SALIDA (SOLO para los idiomas seleccionados):\n";
     languages.forEach(lang => {
       const l = langMap[lang];
@@ -38,7 +36,7 @@ export async function POST(req) {
     REGLAS DE ORO ABSOLUTAS:
     1. NUNCA uses corchetes [ ]. Debes reemplazarlos con la información real que ves en la imagen o en los datos.
     2. Si un detalle no se ve claramente en la imagen, usa la "Descripción breve" proporcionada.
-    3. Empieza DIRECTAMENTE con la primera bandera de idioma. No añadas saludos, introducciones ni explicaciones como "Aquí tienes".
+    3. Empieza DIRECTAMENTE con la primera bandera de idioma. No añadas saludos, introducciones ni explicaciones.
     4. Usa emojis de forma moderada y profesional.
 
     DATOS DEL PRODUCTO:
@@ -60,7 +58,7 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-      model: "openrouter/free", 
+        model: "openrouter/free", 
         messages: [
           { 
             role: "system", 
@@ -74,7 +72,7 @@ export async function POST(req) {
             ]
           }
         ],
-        temperature: 0.2, // Baja para que sea estricto con el formato
+        temperature: 0.2,
       }),
     });
 
