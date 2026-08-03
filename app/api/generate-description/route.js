@@ -60,7 +60,7 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "nvidia/nemotron-nano-12b-2-vl:free",  
+      model: "openrouter/free", 
         messages: [
           { 
             role: "system", 
