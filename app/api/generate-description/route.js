@@ -9,7 +9,7 @@ export async function POST(req) {
 
     const langMap = {
       es: { flag: '🇪🇸', name: 'Español', priceLabel: 'Precio' },
-      en: { flag: '🇬🇧', name: 'English', priceLabel: 'Price' },
+      en: { flag: '🇧', name: 'English', priceLabel: 'Price' },
       fr: { flag: '🇫🇷', name: 'Français', priceLabel: 'Prix' }
     };
 
@@ -18,12 +18,12 @@ export async function POST(req) {
       const l = langMap[lang];
       if (l) {
         formatInstructions += `${l.flag} ${l.name}\n`;
-        formatInstructions += `[Nombre del producto visto en la imagen o en la descripción breve]\n`;
-        formatInstructions += `[Estado: ${condition} + detalle visual de la imagen, ej: ✨]\n`;
-        formatInstructions += `[Breve frase sobre el uso basada en la descripción breve]\n`;
-        formatInstructions += `✔ [Detalle visual 1 extraído de la imagen]\n`;
-        formatInstructions += `✔ [Detalle visual 2 extraído de la imagen]\n`;
-        formatInstructions += `✔ [Detalle visual 3 extraído de la imagen o descripción]\n`;
+        formatInstructions += `[Título atractivo del producto]\n`;
+        formatInstructions += `[Estado: ${condition} + emoji apropiado]\n`;
+        formatInstructions += `[Breve frase sobre el uso o categoría del producto]\n`;
+        formatInstructions += `✔ [Característica visual del PRODUCTO: color, material, marca, diseño]\n`;
+        formatInstructions += `✔ [Característica visual del PRODUCTO: estado, acabados, detalles]\n`;
+        formatInstructions += `✔ [Accesorios o extras incluidos (si los hay)]\n`;
         formatInstructions += `💰 ${l.priceLabel}: ${price} €\n`;
         formatInstructions += `────────\n`;
       }
@@ -31,13 +31,15 @@ export async function POST(req) {
 
     const prompt = `Eres un experto en redacción de anuncios de reventa multilingüe con visión por computadora.
     
-    TU TAREA: Analiza la imagen adjunta y los datos proporcionados. Genera la descripción de venta EXACTAMENTE en el formato solicitado.
+    TU TAREA: Analiza la imagen y genera la descripción de venta EXACTAMENTE en el formato solicitado.
     
     REGLAS DE ORO ABSOLUTAS:
-    1. NUNCA uses corchetes [ ]. Debes reemplazarlos con la información real que ves en la imagen o en los datos.
-    2. Si un detalle no se ve claramente en la imagen, usa la "Descripción breve" proporcionada.
-    3. Empieza DIRECTAMENTE con la primera bandera de idioma. No añadas saludos, introducciones ni explicaciones.
-    4. Usa emojis de forma moderada y profesional.
+    1. NUNCA uses corchetes [ ]. Reemplázalos con información real.
+    2. IGNORA COMPLETAMENTE el fondo, entorno, superficie donde está el producto, sombras, iluminación del lugar. Solo describe el PRODUCTO en sí.
+    3. Si hay texto visible en el producto (marca, modelo), inclúyelo.
+    4. Empieza DIRECTAMENTE con la primera bandera de idioma. Sin saludos ni explicaciones.
+    5. Usa emojis de forma moderada y profesional.
+    6. El precio debe aparecer UNA SOLA VEZ con el símbolo € al final (ej: "35,99 €", NO "35,99€ €").
 
     DATOS DEL PRODUCTO:
     - Descripción breve: ${shortDescription}
@@ -58,11 +60,11 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openrouter/free", // ✅ EL ROUTER INTELIGENTE QUE ELIGE EL MEJOR MODELO GRATUITO CON VISIÓN
+        model: "openrouter/free",
         messages: [
           { 
             role: "system", 
-            content: "Eres un copywriter profesional multilingüe con capacidad de visión. Tu única tarea es generar la descripción final reemplazando los corchetes con datos reales de la imagen y el texto. NUNCA devuelvas corchetes [ ]. Empieza directamente con la bandera del primer idioma." 
+            content: "Eres un copywriter profesional multilingüe especializado en productos de segunda mano. Tu única tarea es generar la descripción final del PRODUCTO, ignorando completamente el fondo o entorno de la foto. NUNCA devuelvas corchetes [ ]. Empieza directamente con la bandera del primer idioma." 
           },
           { 
             role: "user", 
@@ -72,7 +74,7 @@ export async function POST(req) {
             ]
           }
         ],
-        temperature: 0.2,
+        temperature: 0.3,
       }),
     });
 
