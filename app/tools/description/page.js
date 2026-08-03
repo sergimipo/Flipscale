@@ -16,13 +16,40 @@ export default function DescriptionTool() {
   const fileInputRef = useRef(null);
   const router = useRouter();
 
+  // ✅ FUNCIÓN DE COMPRESIÓN AUTOMÁTICA PARA EVITAR ERRORES DE CONEXIÓN
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result);
-        setImageBase64(reader.result);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Redimensionar a máximo 800px (suficiente para IA, reduce drásticamente el peso)
+          const maxSize = 800;
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convertir a JPEG con calidad 0.7 (reduce el tamaño un 80%)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setImage(compressedBase64);
+          setImageBase64(compressedBase64);
+        };
+        img.src = reader.result;
       };
       reader.readAsDataURL(file);
     }
@@ -61,16 +88,23 @@ export default function DescriptionTool() {
         }),
       });
 
+      // ✅ MEJORA: Leer el error real si la respuesta no es OK
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error del servidor: ${res.status}`);
+      }
+
       const data = await res.json();
 
       if (data.description) {
         setResult(data.description);
       } else {
-        setError(data.error || 'Error al generar la descripción.');
+        throw new Error('La IA no devolvió ninguna descripción.');
       }
     } catch (err) {
-      console.error(err);
-      setError('Error de conexión con la IA. Inténtalo de nuevo.');
+      console.error('Error detallado:', err);
+      // ✅ Mostrar el error real en lugar del genérico
+      setError(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -209,7 +243,7 @@ export default function DescriptionTool() {
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded mb-4">⚠️ {error}</div>
+              <div className="bg-red-50 text-red-700 p-4 rounded mb-4 whitespace-pre-wrap">⚠️ {error}</div>
             )}
 
             {result ? (

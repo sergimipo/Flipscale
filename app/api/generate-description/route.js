@@ -58,7 +58,7 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openrouter/free", 
+        model: "openrouter/free", // ✅ EL ROUTER INTELIGENTE QUE ELIGE EL MEJOR MODELO GRATUITO CON VISIÓN
         messages: [
           { 
             role: "system", 
