@@ -52,13 +52,13 @@ export default function Tools() {
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
-  // ✅ FUNCIÓN DE COMPRESIÓN INTELIGENTE
+  // ✅ COMPRESIÓN INTELIGENTE - CALIDAD MÁXIMA
   const compressImage = async (file) => {
-    const maxSize = 3.5 * 1024 * 1024; // 3.5MB - umbral para comprimir
+    const maxSize = 3.8 * 1024 * 1024; // 3.8MB - margen de seguridad
     
-    // Si la imagen ya es pequeña, no la tocamos
+    // Si la imagen ya es pequeña, NO la tocamos - CALIDAD 100%
     if (file.size <= maxSize) {
-      return { file, compressed: false };
+      return { file, compressed: false, reason: 'none' };
     }
 
     return new Promise((resolve) => {
@@ -70,14 +70,20 @@ export default function Tools() {
           let width = img.width;
           let height = img.height;
 
-          // Redimensionar manteniendo proporción (máx 2048px en el lado más largo)
-          const maxDimension = 2048;
-          if (width > height && width > maxDimension) {
-            height = (height * maxDimension) / width;
-            width = maxDimension;
-          } else if (height > maxDimension) {
-            width = (width * maxDimension) / height;
-            height = maxDimension;
+          // Estrategia 1: Solo redimensionar si es MUY grande (> 3000px)
+          // Mantener calidad 100%
+          const maxDimension = 3000;
+          let resized = false;
+          
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height * maxDimension) / width;
+              width = maxDimension;
+            } else {
+              width = (width * maxDimension) / height;
+              height = maxDimension;
+            }
+            resized = true;
           }
 
           canvas.width = width;
@@ -86,26 +92,39 @@ export default function Tools() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Comprimir con calidad 92% (casi imperceptible)
+          // Estrategia 2: Si redimensionamos, usar calidad 98% (casi imperceptible)
+          // Si no redimensionamos, calidad 100%
+          const quality = resized ? 0.98 : 1.0;
+
           canvas.toBlob(
             (blob) => {
-              // Si la compresión no redujo suficiente, intentar con 85%
+              // Si aún es muy grande, intentar con 95% de calidad
               if (blob.size > maxSize) {
                 canvas.toBlob(
                   (blob2) => {
                     const compressedFile = new File([blob2], file.name, { type: 'image/jpeg' });
-                    resolve({ file: compressedFile, compressed: true });
+                    resolve({ 
+                      file: compressedFile, 
+                      compressed: true,
+                      reason: resized ? 'resized+compressed' : 'compressed',
+                      quality: 95
+                    });
                   },
                   'image/jpeg',
-                  0.85
+                  0.95
                 );
               } else {
                 const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
-                resolve({ file: compressedFile, compressed: true });
+                resolve({ 
+                  file: compressedFile, 
+                  compressed: resized || quality < 1.0,
+                  reason: resized ? 'resized' : 'none',
+                  quality: Math.round(quality * 100)
+                });
               }
             },
             'image/jpeg',
-            0.92
+            quality
           );
         };
         img.src = e.target.result;
@@ -158,8 +177,8 @@ export default function Tools() {
       setFiles((prev) => prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'processing' } : f)));
 
       try {
-        // ✅ Comprimir imagen si es necesario antes de enviarla
-        const { file: fileToSend, compressed } = await compressImage(fileObj.file);
+        // Intentar comprimir solo si es necesario
+        const { file: fileToSend, compressed, reason, quality } = await compressImage(fileObj.file);
         
         const formData = new FormData();
         formData.append('file', fileToSend);
@@ -174,7 +193,7 @@ export default function Tools() {
           } catch (e) {
             const textError = await res.text();
             errorMessage = textError.includes('Entity Too Large') 
-              ? 'La imagen es demasiado grande (Máx. 4MB).' 
+              ? 'La imagen es demasiado grande incluso después de optimizar. Máx. 4MB.' 
               : textError || errorMessage;
           }
           throw new Error(errorMessage);
@@ -189,12 +208,23 @@ export default function Tools() {
           body: JSON.stringify({ userId: user.id }),
         });
 
+        let statusMessage = '✅ Procesada';
+        if (compressed) {
+          if (reason === 'resized') {
+            statusMessage = '✅ Procesada (redimensionada)';
+          } else if (reason === 'resized+compressed') {
+            statusMessage = `✅ Procesada (optimizada ${quality}%)`;
+          }
+        }
+
         setFiles((prev) => prev.map((f) => f.id === fileObj.id ? { 
           ...f, 
           status: 'done', 
           cleanBlob, 
           cleanUrl,
-          wasCompressed: compressed
+          wasCompressed: compressed,
+          compressionReason: reason,
+          compressionQuality: quality
         } : f));
 
         if (!hasSub) {
@@ -251,7 +281,7 @@ export default function Tools() {
             <div className="text-5xl mb-4">📁</div>
             <h2 className="text-xl font-bold mb-2">Arrastra tus imágenes aquí</h2>
             <p className="text-gray-600 mb-4">o haz clic para seleccionar múltiples archivos</p>
-            <p className="text-sm text-gray-500">Soporta: JPEG, PNG, WebP (Máx. 4MB por imagen)</p>
+            <p className="text-sm text-gray-500">Soporta: JPEG, PNG, WebP (Máx. 4MB • Calidad preservada)</p>
           </div>
           <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/jpeg,image/jpg,image/png,image/webp" multiple disabled={processing} className="hidden" />
         </div>
@@ -273,7 +303,7 @@ export default function Tools() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">Archivos ({files.length}) <span className="text-sm font-normal text-gray-500">({doneCount} completados)</span></h2>
               <div className="flex gap-4">
-                {doneCount > 0 && <button onClick={downloadAll} className="text-green-600 text-sm font-bold hover:underline">⬇️ Descargar todo</button>}
+                {doneCount > 0 && <button onClick={downloadAll} className="text-green-600 text-sm font-bold hover:underline">️ Descargar todo</button>}
                 <button onClick={clearAll} disabled={processing} className="text-red-500 text-sm hover:underline disabled:opacity-50">Limpiar todo</button>
               </div>
             </div>
@@ -286,11 +316,19 @@ export default function Tools() {
                     <p className="font-bold truncate">{fileObj.file.name}</p>
                     <p className="text-xs text-gray-500 mb-2">
                       {(fileObj.originalSize / 1024).toFixed(2)} KB
-                      {fileObj.wasCompressed && <span className="ml-2 text-orange-600 font-medium">⚡ Comprimida automáticamente</span>}
+                      {fileObj.wasCompressed && fileObj.compressionReason === 'resized' && (
+                        <span className="ml-2 text-blue-600 font-medium">• Redimensionada (calidad 100%)</span>
+                      )}
+                      {fileObj.wasCompressed && fileObj.compressionReason === 'compressed' && (
+                        <span className="ml-2 text-green-600 font-medium">• Optimizada (calidad {fileObj.compressionQuality}%)</span>
+                      )}
+                      {fileObj.wasCompressed && fileObj.compressionReason === 'resized+compressed' && (
+                        <span className="ml-2 text-orange-600 font-medium">• Optimizada (calidad {fileObj.compressionQuality}%)</span>
+                      )}
                     </p>
                     <div className="flex items-center justify-between mt-2">
                       <span className={`text-sm font-bold flex items-center gap-2 ${fileObj.status === 'done' ? 'text-green-600' : fileObj.status === 'processing' ? 'text-blue-600' : fileObj.status === 'error' ? 'text-red-600' : 'text-gray-500'}`}>
-                        {fileObj.status === 'done' && '✅ Procesada'}
+                        {fileObj.status === 'done' && fileObj.wasCompressed ? '✅ Procesada (optimizada)' : fileObj.status === 'done' ? '✅ Procesada (calidad original)' : ''}
                         {fileObj.status === 'processing' && '⏳ Procesando...'}
                         {fileObj.status === 'error' && `❌ Error${fileObj.errorMsg ? ': ' + fileObj.errorMsg : ''}`}
                         {fileObj.status === 'pending' && '⏸️ Pendiente'}
@@ -298,7 +336,7 @@ export default function Tools() {
                       {fileObj.status === 'done' && (
                         <div className="flex gap-2">
                           <button onClick={() => setExpandedFileId(expandedFileId === fileObj.id ? null : fileObj.id)} className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded text-sm hover:bg-blue-100 font-medium transition flex items-center gap-1">
-                            {expandedFileId === fileObj.id ? 'Ocultar detalles' : '👁️ Ver qué se eliminó'}
+                            {expandedFileId === fileObj.id ? 'Ocultar detalles' : '️ Ver qué se eliminó'}
                           </button>
                           <button onClick={() => downloadImage(fileObj)} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition flex items-center gap-1">⬇️ Descargar</button>
                         </div>
@@ -313,6 +351,9 @@ export default function Tools() {
                           <p className="text-gray-500 italic bg-white p-2 rounded border">{fileObj.metadata.error || 'No se detectaron metadatos significativos.'}</p>
                         )}
                         <p className="mt-2 text-green-700 font-semibold flex items-center gap-1"><span>✅</span> Toda esta información ha sido eliminada permanentemente.</p>
+                        {fileObj.wasCompressed && (
+                          <p className="mt-2 text-blue-700 text-xs">ℹ️ La imagen fue optimizada para cumplir con el límite de 4MB de Vercel.</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -327,7 +368,7 @@ export default function Tools() {
         {pendingCount > 0 && (
           <button onClick={processAllFiles} disabled={processing || (!usageStatus.allowed && !hasSubscription)}
             className={`w-full px-6 py-4 rounded-lg font-bold text-lg mb-4 transition flex items-center justify-center gap-2 ${processing || (!usageStatus.allowed && !hasSubscription) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg hover:shadow-xl'}`}>
-            {processing ? '⏳ Procesando lote...' : !usageStatus.allowed && !hasSubscription ? ' Límite mensual alcanzado' : `️ Procesar ${pendingCount} imagen(es) y Eliminar Metadatos`}
+            {processing ? '⏳ Procesando lote...' : !usageStatus.allowed && !hasSubscription ? '🔒 Límite mensual alcanzado' : `🗑️ Procesar ${pendingCount} imagen(es) y Eliminar Metadatos`}
           </button>
         )}
 
