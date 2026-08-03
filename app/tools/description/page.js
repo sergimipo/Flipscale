@@ -7,7 +7,6 @@ export default function DescriptionTool() {
   const [imageBase64, setImageBase64] = useState(null);
   const [shortDesc, setShortDesc] = useState('');
   const [price, setPrice] = useState('');
-  // ✅ CAMBIO 1: Estado inicial corregido
   const [condition, setCondition] = useState('Nuevo con etiquetas');
   const [languages, setLanguages] = useState(['es']);
   const [result, setResult] = useState('');
@@ -23,7 +22,7 @@ export default function DescriptionTool() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result);
-        setImageBase64(reader.result);
+        setImageBase64(reader.result); // Esto ya genera el formato "data:image/..." perfecto para la IA
       };
       reader.readAsDataURL(file);
     }
@@ -31,7 +30,10 @@ export default function DescriptionTool() {
 
   const toggleLanguage = (lang) => {
     if (languages.includes(lang)) {
-      setLanguages(languages.filter((l) => l !== lang));
+      // Evitar que se quede sin ningún idioma
+      if (languages.length > 1) {
+        setLanguages(languages.filter((l) => l !== lang));
+      }
     } else {
       setLanguages([...languages, lang]);
     }
@@ -39,9 +41,7 @@ export default function DescriptionTool() {
 
   const generateDescription = async () => {
     if (!imageBase64 || !shortDesc || !price) {
-      setError(
-        'Por favor, sube una foto, escribe una descripción y añade el precio.'
-      );
+      setError('Por favor, sube una foto, escribe una descripción breve y añade el precio.');
       return;
     }
 
@@ -70,7 +70,8 @@ export default function DescriptionTool() {
         setError(data.error || 'Error al generar la descripción.');
       }
     } catch (err) {
-      setError('Error de conexión con la IA.');
+      console.error(err);
+      setError('Error de conexión con la IA. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -88,8 +89,7 @@ export default function DescriptionTool() {
           ✨ Optimizador de Descripciones IA
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          Sube una foto y completa los datos para generar la descripción
-          perfecta.
+          Sube una foto y completa los datos. La IA "verá" tu producto y escribirá la descripción perfecta.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -97,25 +97,17 @@ export default function DescriptionTool() {
           <div className="space-y-4">
             {/* Subida de Imagen */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <label className="block font-bold mb-2">
-                1. Foto del producto
-              </label>
+              <label className="block font-bold mb-2">1. Foto del producto</label>
               <div
                 className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {image ? (
-                  <img
-                    src={image}
-                    alt="Preview"
-                    className="max-h-48 mx-auto rounded"
-                  />
+                  <img src={image} alt="Preview" className="max-h-48 mx-auto rounded" />
                 ) : (
                   <div className="py-8">
-                    <p className="text-4xl mb-2"></p>
-                    <p className="text-gray-500">
-                      Haz clic para subir una foto
-                    </p>
+                    <p className="text-4xl mb-2">📷</p>
+                    <p className="text-gray-500">Haz clic para subir una foto</p>
                   </div>
                 )}
                 <input
@@ -130,14 +122,11 @@ export default function DescriptionTool() {
 
             {/* Descripción Breve */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <label className="block font-bold mb-2">
-                2. Descripción breve
-              </label>
+              <label className="block font-bold mb-2">2. Descripción breve</label>
               <textarea
                 value={shortDesc}
                 onChange={(e) => setShortDesc(e.target.value)}
-                // ✅ CAMBIO 2: Ejemplo de las gafas eliminado
-                placeholder="Ej: Sudadera Nike talla M, color gris, con capucha..."
+                placeholder="Ej: Gafas de ciclismo, incluye estuche y lentes extra..."
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                 rows="3"
               />
@@ -157,15 +146,12 @@ export default function DescriptionTool() {
 
             {/* Estado */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <label className="block font-bold mb-2">
-                4. Estado del producto
-              </label>
+              <label className="block font-bold mb-2">4. Estado del producto</label>
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
               >
-                {/* ✅ CAMBIO 3: Estados exactos de Vinted */}
                 <option>Nuevo con etiquetas</option>
                 <option>Nuevo sin etiquetas</option>
                 <option>Muy bueno</option>
@@ -181,9 +167,7 @@ export default function DescriptionTool() {
                 <button
                   onClick={() => toggleLanguage('es')}
                   className={`px-4 py-2 rounded-lg font-medium transition ${
-                    languages.includes('es')
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    languages.includes('es') ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   🇪🇸 Español
@@ -191,9 +175,7 @@ export default function DescriptionTool() {
                 <button
                   onClick={() => toggleLanguage('en')}
                   className={`px-4 py-2 rounded-lg font-medium transition ${
-                    languages.includes('en')
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    languages.includes('en') ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   🇬🇧 English
@@ -201,9 +183,7 @@ export default function DescriptionTool() {
                 <button
                   onClick={() => toggleLanguage('fr')}
                   className={`px-4 py-2 rounded-lg font-medium transition ${
-                    languages.includes('fr')
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    languages.includes('fr') ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   🇫🇷 Français
@@ -215,14 +195,10 @@ export default function DescriptionTool() {
               onClick={generateDescription}
               disabled={loading}
               className={`w-full py-4 rounded-lg font-bold text-lg transition ${
-                loading
-                  ? 'bg-gray-400 text-gray-200'
-                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                loading ? 'bg-gray-400 text-gray-200' : 'bg-purple-600 text-white hover:bg-purple-700'
               }`}
             >
-              {loading
-                ? '⏳ La IA está escribiendo...'
-                : '✨ Generar Descripción'}
+              {loading ? '⏳ La IA está analizando la imagen...' : '✨ Generar Descripción'}
             </button>
           </div>
 
@@ -235,19 +211,17 @@ export default function DescriptionTool() {
                   onClick={copyToClipboard}
                   className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
                 >
-                  Copiar
+                  📋 Copiar
                 </button>
               )}
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded mb-4">
-                ⚠️ {error}
-              </div>
+              <div className="bg-red-50 text-red-700 p-4 rounded mb-4">⚠️ {error}</div>
             )}
 
             {result ? (
-              <div className="bg-gray-50 p-4 rounded-lg border whitespace-pre-wrap text-gray-800 min-h-[300px]">
+              <div className="bg-gray-50 p-4 rounded-lg border whitespace-pre-wrap text-gray-800 min-h-[300px] font-mono text-sm">
                 {result}
               </div>
             ) : (
@@ -259,9 +233,7 @@ export default function DescriptionTool() {
         </div>
 
         <div className="text-center mt-8">
-          <a href="/dashboard" className="text-purple-600 hover:underline">
-            ← Volver al Dashboard
-          </a>
+          <a href="/dashboard" className="text-purple-600 hover:underline">← Volver al Dashboard</a>
         </div>
       </div>
     </div>

@@ -1,76 +1,55 @@
 export async function POST(req) {
   try {
-    const { productDetails } = await req.json();
+    const { imageBase64, shortDescription, price, condition, languages } = await req.json();
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
     if (!OPENROUTER_API_KEY) {
       return Response.json({ error: "Falta la clave de API de OpenRouter" }, { status: 500 });
     }
 
-    // ✅ PROMPT ULTRA-ESTRICTO PARA EL FORMATO TRILINGÜE
-    const prompt = `Eres un experto en redacción de anuncios de reventa multilingüe para plataformas como Vinted o Wallapop.
+    // Mapeo de idiomas para construir el prompt dinámicamente
+    const langMap = {
+      es: { flag: '🇪🇸', name: 'Español', priceLabel: 'Precio' },
+      en: { flag: '🇬🇧', name: 'English', priceLabel: 'Price' },
+      fr: { flag: '🇫🇷', name: 'Français', priceLabel: 'Prix' }
+    };
 
-Tu ÚNICA tarea es generar la descripción del producto EXACTAMENTE en el siguiente formato trilingüe, sin añadir NINGÚN texto de conversación, saludo o explicación antes o después.
+    // Construir las instrucciones de formato solo para los idiomas seleccionados
+    let formatInstructions = "FORMATO OBLIGATORIO DE SALIDA (SOLO para los idiomas seleccionados):\n";
+    languages.forEach(lang => {
+      const l = langMap[lang];
+      if (l) {
+        formatInstructions += `${l.flag} ${l.name}\n`;
+        formatInstructions += `[Nombre del producto visto en la imagen o en la descripción breve]\n`;
+        formatInstructions += `[Estado: ${condition} + detalle visual de la imagen, ej: ✨]\n`;
+        formatInstructions += `[Breve frase sobre el uso basada en la descripción breve]\n`;
+        formatInstructions += `✔ [Detalle visual 1 extraído de la imagen]\n`;
+        formatInstructions += `✔ [Detalle visual 2 extraído de la imagen]\n`;
+        formatInstructions += `✔ [Detalle visual 3 extraído de la imagen o descripción]\n`;
+        formatInstructions += `💰 ${l.priceLabel}: ${price} €\n`;
+        formatInstructions += `────────\n`;
+      }
+    });
 
-DATOS DEL PRODUCTO:
-${JSON.stringify(productDetails, null, 2)}
+    const prompt = `Eres un experto en redacción de anuncios de reventa multilingüe con visión por computadora.
+    
+    TU TAREA: Analiza la imagen adjunta y los datos proporcionados. Genera la descripción de venta EXACTAMENTE en el formato solicitado.
+    
+    REGLAS DE ORO ABSOLUTAS:
+    1. NUNCA uses corchetes [ ]. Debes reemplazarlos con la información real que ves en la imagen o en los datos.
+    2. Si un detalle no se ve claramente en la imagen, usa la "Descripción breve" proporcionada.
+    3. Empieza DIRECTAMENTE con la primera bandera de idioma. No añadas saludos, introducciones ni explicaciones como "Aquí tienes".
+    4. Usa emojis de forma moderada y profesional.
 
-FORMATO OBLIGATORIO DE SALIDA:
+    DATOS DEL PRODUCTO:
+    - Descripción breve: ${shortDescription}
+    - Estado declarado: ${condition}
+    - Precio: ${price} €
+    - Idiomas solicitados: ${languages.join(', ')}
 
-🇪🇸 Español
+    ${formatInstructions}
 
-[Título o nombre del producto]
-
-[Estado del producto, ej: NUEVO, sin uso ✨ o USADO, buen estado]
-
-[Breve frase sobre el uso o categoría del producto]
-
-✔ [Característica o detalle 1 extraído de los datos]
-✔ [Característica o detalle 2 extraído de los datos]
-✔ [Característica o detalle 3 extraído de los datos]
-✔ [Cualquier otro detalle relevante, medidas, accesorios incluidos, etc. extraído de los datos]
-
-💰 Precio: [Precio] €
-
-────────
-
-🇬🇧 English
-
-[Product title or short description in English]
-
-[Product condition in English]
-
-[Brief phrase about use/category in English]
-
-✔ [Feature 1 in English]
-✔ [Feature 2 in English]
-✔ [Feature 3 in English]
-✔ [Other relevant details in English]
-
-💰 Price: €[Price]
-
-────────
-
-🇫🇷 Français
-
-[Titre ou description courte en français]
-
-[État du produit en français]
-
-[Brève phrase sur l'utilisation/catégorie en français]
-
-✔ [Caractéristique 1 en français]
-✔ [Caractéristique 2 en français]
-✔ [Caractéristique 3 en français]
-✔ [Autres détails pertinents en français]
-
-💰 Prix : [Price] €
-
-INSTRUCCIONES CRÍTICAS:
-1. Usa EXACTAMENTE este formato, con los separadores "────────" y los emojis de bandera.
-2. No incluyas frases como "Aquí tienes la descripción" o "Espero que te sirva". Empieza directamente con "🇪🇸 Español".
-3. Adapta las características (los puntos con ✔) basándote ÚNICAMENTE en los datos proporcionados en "DATOS DEL PRODUCTO".
-4. Mantén un tono profesional, atractivo y optimizado para la venta.`;
+    ¡Genera la descripción AHORA siguiendo estrictamente el formato!`;
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -81,15 +60,21 @@ INSTRUCCIONES CRÍTICAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b:free", 
+        model: "qwen/qwen-2-vl-7b-instruct:free", 
         messages: [
           { 
             role: "system", 
-            content: "Eres un copywriter profesional multilingüe. Tu única tarea es generar la descripción final en el formato exacto solicitado. NUNCA añadas texto de conversación, saludos o explicaciones. Empieza directamente con la bandera 🇪🇸." 
+            content: "Eres un copywriter profesional multilingüe con capacidad de visión. Tu única tarea es generar la descripción final reemplazando los corchetes con datos reales de la imagen y el texto. NUNCA devuelvas corchetes [ ]. Empieza directamente con la bandera del primer idioma." 
           },
-          { role: "user", content: prompt }
+          { 
+            role: "user", 
+            content: [
+              { type: "text", text: prompt },
+              ...(imageBase64 ? [{ type: "image_url", image_url: { url: imageBase64 } }] : [])
+            ]
+          }
         ],
-        temperature: 0.7, // Un poco de creatividad, pero controlada
+        temperature: 0.2, // Baja para que sea estricto con el formato
       }),
     });
 
@@ -105,10 +90,7 @@ INSTRUCCIONES CRÍTICAS:
     }
 
     const description = data.choices?.[0]?.message?.content;
-    
-    if (!description) {
-      throw new Error("La IA no devolvió ningún contenido.");
-    }
+    if (!description) throw new Error("La IA no devolvió ningún contenido.");
 
     return Response.json({ description });
 
