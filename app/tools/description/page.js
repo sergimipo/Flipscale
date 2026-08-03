@@ -89,8 +89,8 @@ export default function DescriptionTool() {
           ✨ Optimizador de Descripciones IA
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          Sube una foto y completa los datos. La IA "verá" tu producto y escribirá la descripción perfecta.
-        </p>
+  Sube una foto y completa los datos. La IA &quot;verá&quot; tu producto y escribirá la descripción perfecta.
+</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* COLUMNA IZQUIERDA: INPUTS */}
