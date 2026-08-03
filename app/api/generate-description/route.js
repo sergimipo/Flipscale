@@ -7,12 +7,71 @@ export async function POST(req) {
       return Response.json({ error: "Falta la clave de API de OpenRouter" }, { status: 500 });
     }
 
-    const prompt = `Eres un experto en ventas de segunda mano en plataformas como Vinted o Wallapop. 
-    Escribe una descripción atractiva, honesta y optimizada para SEO basada en estos datos: ${JSON.stringify(productDetails)}. 
-    Incluye: estado, medidas (si las hay), motivo de venta (genérico) y palabras clave relevantes. Usa emojis de forma moderada.`;
+    // ✅ PROMPT ULTRA-ESTRICTO PARA EL FORMATO TRILINGÜE
+    const prompt = `Eres un experto en redacción de anuncios de reventa multilingüe para plataformas como Vinted o Wallapop.
 
-    // ✅ CAMBIO 1: Usamos el modelo ":free" para asegurar que funcione sin gastar créditos, 
-    // o puedes usar "meta-llama/llama-3-8b-instruct" si prefieres otro.
+Tu ÚNICA tarea es generar la descripción del producto EXACTAMENTE en el siguiente formato trilingüe, sin añadir NINGÚN texto de conversación, saludo o explicación antes o después.
+
+DATOS DEL PRODUCTO:
+${JSON.stringify(productDetails, null, 2)}
+
+FORMATO OBLIGATORIO DE SALIDA:
+
+🇪🇸 Español
+
+[Título o nombre del producto]
+
+[Estado del producto, ej: NUEVO, sin uso ✨ o USADO, buen estado]
+
+[Breve frase sobre el uso o categoría del producto]
+
+✔ [Característica o detalle 1 extraído de los datos]
+✔ [Característica o detalle 2 extraído de los datos]
+✔ [Característica o detalle 3 extraído de los datos]
+✔ [Cualquier otro detalle relevante, medidas, accesorios incluidos, etc. extraído de los datos]
+
+💰 Precio: [Precio] €
+
+────────
+
+🇬🇧 English
+
+[Product title or short description in English]
+
+[Product condition in English]
+
+[Brief phrase about use/category in English]
+
+✔ [Feature 1 in English]
+✔ [Feature 2 in English]
+✔ [Feature 3 in English]
+✔ [Other relevant details in English]
+
+💰 Price: €[Price]
+
+────────
+
+🇫🇷 Français
+
+[Titre ou description courte en français]
+
+[État du produit en français]
+
+[Brève phrase sur l'utilisation/catégorie en français]
+
+✔ [Caractéristique 1 en français]
+✔ [Caractéristique 2 en français]
+✔ [Caractéristique 3 en français]
+✔ [Autres détails pertinents en français]
+
+💰 Prix : [Price] €
+
+INSTRUCCIONES CRÍTICAS:
+1. Usa EXACTAMENTE este formato, con los separadores "────────" y los emojis de bandera.
+2. No incluyas frases como "Aquí tienes la descripción" o "Espero que te sirva". Empieza directamente con "🇪🇸 Español".
+3. Adapta las características (los puntos con ✔) basándote ÚNICAMENTE en los datos proporcionados en "DATOS DEL PRODUCTO".
+4. Mantén un tono profesional, atractivo y optimizado para la venta.`;
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -22,17 +81,20 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b:free",   
+        model: "openai/gpt-oss-20b:free", 
         messages: [
-          { role: "system", content: "Eres un asistente experto en redacción de anuncios de reventa." },
+          { 
+            role: "system", 
+            content: "Eres un copywriter profesional multilingüe. Tu única tarea es generar la descripción final en el formato exacto solicitado. NUNCA añadas texto de conversación, saludos o explicaciones. Empieza directamente con la bandera 🇪🇸." 
+          },
           { role: "user", content: prompt }
         ],
+        temperature: 0.7, // Un poco de creatividad, pero controlada
       }),
     });
 
     const data = await response.json();
     
-    // ✅ CAMBIO 2: Verificar si la respuesta HTTP fue un error (401, 402, 429, etc.)
     if (!response.ok) {
       console.error("❌ ERROR OPENROUTER (HTTP):", data);
       throw new Error(data.error?.message || `Error del servidor: ${response.status}`);
@@ -52,8 +114,6 @@ export async function POST(req) {
 
   } catch (error) {
     console.error("❌ ERROR AL GENERAR DESCRIPCIÓN:", error.message);
-    
-    // ✅ CAMBIO 3: Devolver el error REAL al frontend para poder depurarlo
     return Response.json({ error: `Error de IA: ${error.message}` }, { status: 500 });
   }
 }
