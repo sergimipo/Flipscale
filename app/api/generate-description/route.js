@@ -22,7 +22,7 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3-8b-instruct:free", 
+        model: "google/gemma-4-31b-it:free",  
         messages: [
           { role: "system", content: "Eres un asistente experto en redacción de anuncios de reventa." },
           { role: "user", content: prompt }
