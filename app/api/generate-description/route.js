@@ -60,7 +60,7 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "qwen/qwen-2-vl-7b-instruct:free", 
+        model: "google/gemma-4-31b:free", 
         messages: [
           { 
             role: "system", 
