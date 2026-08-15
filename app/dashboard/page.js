@@ -3,13 +3,24 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
+const fmt = (n) => n.toFixed(2) + ' €';
+
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
+  const [transactions, setTransactions] = useState([]);
   const router = useRouter();
   const supabase = createClient();
+
+  const loadTransactions = async () => {
+    const { data } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setTransactions(data || []);
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -20,7 +31,6 @@ export default function DashboardPage() {
       }
       setUser(user);
 
-      // Verificar si viene de Stripe con éxito
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('success') === 'true') {
         const sessionId = urlParams.get('session_id');
@@ -35,7 +45,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Cargar la suscripción desde Supabase
       const { data: sub } = await supabase
         .from('subscriptions')
         .select('*')
@@ -47,6 +56,18 @@ export default function DashboardPage() {
     };
 
     getUser();
+    loadTransactions();
+
+    const channel = supabase
+      .channel('cambios-transacciones')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        () => loadTransactions()
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleSignOut = async () => {
@@ -64,9 +85,16 @@ export default function DashboardPage() {
 
   const hasSubscription = subscription && subscription.status === 'active';
 
+  const sum = (list) => list.reduce((s, t) => s + Number(t.amount), 0);
+  const ing = transactions.filter((t) => t.type === 'ingreso');
+  const gas = transactions.filter((t) => t.type === 'gasto');
+  const ingresos = sum(ing);
+  const gastos = sum(gas);
+  const beneficio = ingresos - gastos;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Mi Dashboard</h1>
           <button 
@@ -102,6 +130,70 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* 💶 FINANZAS EN VIVO */}
+        <div className="bg-white p-6 rounded-lg shadow mb-8 border-l-4 border-green-500">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">💶 Finanzas</h2>
+            <span className="text-xs text-gray-400 flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              En vivo
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <p className="text-xs text-green-700 font-medium">Ingresos</p>
+              <p className="text-xl font-bold text-green-700">{fmt(ingresos)}</p>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <p className="text-xs text-red-700 font-medium">Gastos</p>
+              <p className="text-xl font-bold text-red-700">{fmt(gastos)}</p>
+            </div>
+            <div className={`p-4 rounded-lg ${beneficio >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+              <p className={`text-xs font-medium ${beneficio >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Beneficio</p>
+              <p className={`text-xl font-bold ${beneficio >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{fmt(beneficio)}</p>
+            </div>
+          </div>
+
+          {transactions.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                    <th className="pb-2 font-medium">Tipo</th>
+                    <th className="pb-2 font-medium">Categoría</th>
+                    <th className="pb-2 font-medium">Nota</th>
+                    <th className="pb-2 font-medium">Fecha</th>
+                    <th className="pb-2 text-right font-medium">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.slice(0, 10).map((t) => (
+                    <tr key={t.id} className="border-b border-gray-100">
+                      <td className="py-2">{t.type === 'ingreso' ? '💰' : '💸'}</td>
+                      <td className="py-2 capitalize">{t.category}</td>
+                      <td className="py-2 text-gray-500">{t.note || '—'}</td>
+                      <td className="py-2 text-gray-500">
+                        {new Date(t.created_at).toLocaleDateString('es-ES')}
+                      </td>
+                      <td className={`py-2 text-right font-semibold ${t.type === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.type === 'ingreso' ? '+' : '-'}{fmt(Number(t.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {transactions.length === 0 && (
+            <p className="text-center text-gray-400 py-6">
+              Aún no hay movimientos. Registra uno desde el atajo de tu iPhone. 📱
+            </p>
+          )}
+        </div>
+
+        {/* 🛠️ HERRAMIENTAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500 hover:shadow-lg transition">
             <h3 className="text-lg font-bold mb-2">🗑️ Borrado de Metadatos</h3>
