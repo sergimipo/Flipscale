@@ -15,14 +15,18 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   const loadTransactions = async () => {
+    console.log('🔄 Cargando transacciones...');
     const { data } = await supabase
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: false });
+    console.log('✅ Transacciones cargadas:', data?.length || 0);
     setTransactions(data || []);
   };
 
   useEffect(() => {
+    let channel;
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -53,21 +57,37 @@ export default function DashboardPage() {
       
       setSubscription(sub);
       setLoading(false);
+
+      // Canal Realtime filtrado por tu usuario
+      channel = supabase
+        .channel('cambios-transacciones-' + user.id)
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'transactions',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('📨 Cambio recibido:', payload);
+            loadTransactions();
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Estado del canal:', status);
+        });
     };
 
     getUser();
     loadTransactions();
 
-    const channel = supabase
-      .channel('cambios-transacciones')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
-        () => loadTransactions()
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    return () => {
+      if (channel) {
+        console.log('🔌 Cerrando canal Realtime');
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   const handleSignOut = async () => {
