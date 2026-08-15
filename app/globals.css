@@ -91,7 +91,7 @@ body {
 }
 
 .btn-ghost {
-  @apply rounded-full border border-white/15 bg-white/5 px-7 py-3.5 text-sm font-semibold backdrop-blur transition-all duration-300;
+  @apply rounded-full border border-white/10 bg-white/5 px-7 py-3.5 text-sm font-semibold backdrop-blur transition-all duration-300;
 }
 
 .btn-ghost:hover {
