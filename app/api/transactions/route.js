@@ -7,6 +7,7 @@ export async function POST(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  // Comprobar la clave del atajo
   const auth = req.headers.get('authorization') || ''
   const key = auth.replace('Bearer ', '')
 
@@ -20,13 +21,21 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Clave inválida' }, { status: 401 })
   }
 
-  const body = await req.json()
+  // Leer el JSON que envía el iPhone
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+  }
 
+  // Limpiar y normalizar los datos
   const type = String(body.type || '').trim().toLowerCase()
   const category = String(body.category || '').trim().toLowerCase()
-  const amount = Number(body.amount)
+  const amount = Number(String(body.amount || '').replace(',', '.'))
   const note = String(body.note || '').trim() || null
 
+  // Validaciones
   if (!['ingreso', 'gasto'].includes(type)) {
     return NextResponse.json({ error: 'type inválido' }, { status: 400 })
   }
@@ -37,6 +46,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'amount inválido' }, { status: 400 })
   }
 
+  // Guardar en la base de datos
   const { error } = await supabase.from('transactions').insert({
     user_id: keyRow.user_id,
     type,
