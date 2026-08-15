@@ -1,32 +1,21 @@
-import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Sora } from 'next/font/google';
+import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const sora = Sora({ subsets: ['latin'], variable: '--font-sora', weight: ['400', '600', '700', '800'] });
 
 export const metadata: Metadata = {
-  title: 'FlipScale | Escala tu negocio de reventa',
-  description: 'Automatiza descripciones con IA, elimina metadatos de fotos y organiza tu inventario para vender más en Vinted, Wallapop y eBay.',
-  openGraph: {
-    title: 'FlipScale',
-    description: 'La herramienta definitiva para revendedores profesionales.',
-    images: ['/og-image.png'],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'FlipScale',
-    description: 'Automatiza tu reventa con IA.',
-  },
+  title: 'Flipscale — Inteligencia para revendedores',
+  description:
+    'Controla ingresos y gastos de Vinted, Wallapop y Etsy en tiempo real. Más inteligencia. Más crecimiento. Más beneficios.',
+  icons: ['/logo-dark.png'],
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.variable} ${sora.variable} font-sans`}>{children}</body>
     </html>
   );
 }
