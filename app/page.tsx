@@ -42,7 +42,6 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
   );
 }
 
-// Tilt card con efecto 3D al pasar el cursor
 function TiltCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const handleMove = (e: React.MouseEvent) => {
@@ -51,20 +50,17 @@ function TiltCard({ children, className = '' }: { children: React.ReactNode; cla
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const rx = ((y / rect.height) - 0.5) * -8;
-    const ry = ((x / rect.width) - 0.5) * 8;
+    const rx = (y / rect.height - 0.5) * -8;
+    const ry = (x / rect.width - 0.5) * 8;
     el.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(10px)`;
   };
   const handleLeave = () => {
-    if (ref.current) ref.current.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
+    if (ref.current) {
+      ref.current.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
+    }
   };
   return (
-    <div
-      ref={ref}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      className={`tilt-card ${className}`}
-    >
+    <div ref={ref} onMouseMove={handleMove} onMouseLeave={handleLeave} className={`tilt-card ${className}`}>
       {children}
     </div>
   );
@@ -72,16 +68,16 @@ function TiltCard({ children, className = '' }: { children: React.ReactNode; cla
 
 const testimonials = [
   { name: 'Laura M.', role: 'Vendedora en Vinted', text: 'Pasé de intuir a saber. Ahora sé qué me deja beneficio real por plataforma.', rating: 5 },
-  { name: 'Marc R.', role: 'Reseller Wallapop', text: 'El atajo del móvil me ha cambiado la vida. Registro cada venta en 5 segundos.', rating: 5 },
-  { name: 'Sofía G.', role: 'Etsy shop owner', text: 'Por fin una herramienta hecha para revendedores, no para freelancers genéricos.', rating: 5 },
-  { name: 'David P.', role: 'Full-time flipper', text: 'El dashboard en tiempo real me ha hecho ver gastos que no controlaba. +23% de margen.', rating: 5 },
-  { name: 'Elena V.', role: 'Vinted top seller', text: 'La IA de descripciones es oro. Vendo más rápido y con menos esfuerzo.', rating: 5 },
-  { name: 'Carlos T.', role: 'Reseller multi-plataforma', text: 'Llevo 3 años vendiendo online. Flipscale es lo que siempre quise tener.', rating: 5 },
+  { name: 'Marc R.', role: 'Reseller en Wallapop', text: 'El atajo del móvil me ha cambiado la vida. Registro cada venta en 5 segundos.', rating: 5 },
+  { name: 'Sofía G.', role: 'Tienda en Etsy', text: 'Por fin una herramienta hecha para revendedores, no para freelancers genéricos.', rating: 5 },
+  { name: 'David P.', role: 'Flipper a tiempo completo', text: 'El dashboard en tiempo real me hizo ver gastos que no controlaba. +23% de margen.', rating: 5 },
+  { name: 'Elena V.', role: 'Top seller en Vinted', text: 'La IA de descripciones es oro. Vendo más rápido y con menos esfuerzo.', rating: 5 },
+  { name: 'Carlos T.', role: 'Reseller multiplataforma', text: 'Llevo 3 años vendiendo online. Flipscale es lo que siempre quise tener.', rating: 5 },
   { name: 'Ana B.', role: 'Vendedora ocasional', text: 'Fácil, rápido y bonito. No hace falta ser contable para usarlo.', rating: 5 },
   { name: 'Jordi S.', role: 'Vintage flipper', text: 'Saber mi beneficio real por plataforma me ayudó a centrar el negocio.', rating: 5 },
 ];
 
-function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
+function TestimonialCard({ t }: { t: (typeof testimonials)[0] }) {
   return (
     <div className="mx-2 flex w-[340px] flex-shrink-0 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-all duration-300 hover:border-brand-500/50 hover:bg-white/10 md:w-[380px]">
       <div>
@@ -92,10 +88,10 @@ function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
             </svg>
           ))}
         </div>
-        <p className="text-sm leading-relaxed text-slate-200">"{t.text}"</p>
+        <p className="text-sm leading-relaxed text-slate-200">«{t.text}»</p>
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-animated-gradient text-xs font-bold text-white">
+        <div className="bg-animated-gradient flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white">
           {t.name.charAt(0)}
         </div>
         <div>
@@ -110,6 +106,13 @@ function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const marqueeRef = useRef<HTMLDivElement>(null);
+
+  const setMarqueeSpeed = (rate: number) => {
+    marqueeRef.current?.getAnimations({ subtree: true }).forEach((a) => {
+      a.playbackRate = rate;
+    });
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -126,17 +129,25 @@ export default function Home() {
         }`}
       >
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="group flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]">
+          <Link href="/" className="flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]">
             <Logo className="h-11 w-11 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)]" />
             <span className="font-display text-lg font-bold tracking-[0.18em]">
               FLIP<span className="text-accent-500">SCALE</span>
             </span>
           </Link>
           <nav className="hidden items-center gap-10 text-sm text-slate-400 md:flex">
-            <a href="#producto" className="relative transition hover:text-white after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all hover:after:w-full">Producto</a>
-            <a href="#como-funciona" className="relative transition hover:text-white after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all hover:after:w-full">Cómo funciona</a>
-            <a href="#testimonios" className="relative transition hover:text-white after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all hover:after:w-full">Testimonios</a>
-            <Link href="/pricing" className="relative transition hover:text-white after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all hover:after:w-full">Precios</Link>
+            <a href="#producto" className="relative transition after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:text-white hover:after:w-full">
+              Producto
+            </a>
+            <a href="#como-funciona" className="relative transition after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:text-white hover:after:w-full">
+              Cómo funciona
+            </a>
+            <a href="#testimonios" className="relative transition after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:text-white hover:after:w-full">
+              Testimonios
+            </a>
+            <Link href="/pricing" className="relative transition after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:text-white hover:after:w-full">
+              Precios
+            </Link>
           </nav>
           <div className="flex items-center gap-4">
             <Link href="/login" className="hidden text-sm text-slate-400 transition hover:text-white sm:block">
@@ -207,7 +218,7 @@ export default function Home() {
         <Reveal className="relative mx-auto mt-24 max-w-5xl">
           <div className="relative">
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-500/20 via-accent-500/10 to-transparent blur-2xl" />
-            <div className="relative rounded-2xl border border-white/10 bg-ink-900/80 p-5 shadow-2xl backdrop-blur-xl md:p-8">
+            <div className="animate-float relative rounded-2xl border border-white/10 bg-ink-900/80 p-5 shadow-2xl backdrop-blur-xl md:p-8">
               <div className="mb-6 flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <Logo className="h-7 w-7" />
@@ -222,15 +233,15 @@ export default function Home() {
                 </span>
               </div>
               <div className="mb-8 grid grid-cols-3 gap-3 md:gap-4">
-                <div className="group rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
+                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
                   <p className="text-xs text-slate-400">Ingresos</p>
                   <p className="mt-1 font-display text-xl font-bold text-brand-400 md:text-2xl">241,34 €</p>
                 </div>
-                <div className="group rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
+                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
                   <p className="text-xs text-slate-400">Gastos</p>
                   <p className="mt-1 font-display text-xl font-bold text-red-400 md:text-2xl">58,20 €</p>
                 </div>
-                <div className="group rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
+                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
                   <p className="text-xs text-slate-400">Beneficio</p>
                   <p className="mt-1 font-display text-xl font-bold text-accent-500 md:text-2xl">183,14 €</p>
                 </div>
@@ -242,7 +253,10 @@ export default function Home() {
                       className="flex-1 rounded-t-md bg-gradient-to-t from-brand-700 to-brand-400 transition-all duration-500 hover:from-brand-600 hover:to-brand-300"
                       style={{ height: `${h}%` }}
                     />
-                    <div className="flex-1 rounded-t-md bg-ink-700 transition-all duration-500 hover:bg-ink-600" style={{ height: `${h / 2.4}%` }} />
+                    <div
+                      className="flex-1 rounded-t-md bg-ink-700 transition-all duration-500 hover:bg-ink-600"
+                      style={{ height: `${h / 2.4}%` }}
+                    />
                   </div>
                 ))}
               </div>
@@ -251,8 +265,8 @@ export default function Home() {
         </Reveal>
       </section>
 
-      {/* LOGOS MARQUEE */}
-      <section className="border-y border-white/5 py-8">
+      {/* MARKETPLACES */}
+      <section className="border-t border-white/5 py-8">
         <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-slate-500">
           Compatible con tus marketplaces
         </p>
@@ -260,12 +274,15 @@ export default function Home() {
           <span className="transition hover:text-white">Vinted</span>
           <span className="transition hover:text-white">Wallapop</span>
           <span className="transition hover:text-white">Etsy</span>
-          <span className="transition hover:text-white">eBay</span>
-          <span className="transition hover:text-white">Amazon</span>
+          <span className="transition hover:text-white">Milanuncios</span>
+          <span className="transition hover:text-white">Facebook Marketplace</span>
         </div>
       </section>
 
-      {/* BENTO PRODUCTO */}
+      {/* TRANSICIÓN OSCURO → CLARO */}
+      <div className="h-40 bg-gradient-to-b from-ink-950 to-paper" />
+
+      {/* PRODUCTO */}
       <section id="producto" className="bg-paper px-6 py-28 text-ink-950">
         <div className="mx-auto max-w-6xl">
           <Reveal>
@@ -342,6 +359,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* TRANSICIÓN CLARO → OSCURO */}
+      <div className="h-40 bg-gradient-to-b from-paper to-ink-950" />
+
       {/* CÓMO FUNCIONA */}
       <section id="como-funciona" className="px-6 py-28">
         <div className="mx-auto max-w-6xl">
@@ -361,7 +381,9 @@ export default function Home() {
             ].map(([n, t, d], i) => (
               <Reveal key={n} className={i === 1 ? 'md:translate-y-8' : ''}>
                 <div className="group rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur transition-all duration-500 hover:border-brand-500/30 hover:bg-white/10">
-                  <p className="font-display text-6xl font-extrabold text-brand-500/20 transition-all duration-500 group-hover:text-brand-500/40">{n}</p>
+                  <p className="font-display text-6xl font-extrabold text-brand-500/20 transition-all duration-500 group-hover:text-brand-500/40">
+                    {n}
+                  </p>
                   <h3 className="mt-4 font-display text-xl font-semibold md:text-2xl">{t}</h3>
                   <p className="mt-3 leading-relaxed text-slate-400">{d}</p>
                 </div>
@@ -371,7 +393,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* TESTIMONIOS MARQUEE */}
+      {/* TESTIMONIOS */}
       <section id="testimonios" className="overflow-hidden border-y border-white/5 bg-ink-900/50 py-20">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal>
@@ -383,22 +405,25 @@ export default function Home() {
             </div>
           </Reveal>
         </div>
-        <div className="marquee-pause space-y-4">
-          {/* Línea 1 - izquierda */}
+        <div
+          ref={marqueeRef}
+          className="space-y-4"
+          onMouseEnter={() => setMarqueeSpeed(0.15)}
+          onMouseLeave={() => setMarqueeSpeed(1)}
+        >
           <div className="relative flex overflow-hidden">
             <div className="absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-ink-950 to-transparent" />
             <div className="absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-ink-950 to-transparent" />
-            <div className="flex animate-marquee-left">
+            <div className="animate-marquee-left flex">
               {[...testimonials, ...testimonials].map((t, i) => (
                 <TestimonialCard key={`l1-${i}`} t={t} />
               ))}
             </div>
           </div>
-          {/* Línea 2 - derecha */}
           <div className="relative flex overflow-hidden">
             <div className="absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-ink-950 to-transparent" />
             <div className="absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-ink-950 to-transparent" />
-            <div className="flex animate-marquee-right">
+            <div className="animate-marquee-right flex">
               {[...testimonials, ...testimonials].map((t, i) => (
                 <TestimonialCard key={`l2-${i}`} t={t} />
               ))}
@@ -411,7 +436,7 @@ export default function Home() {
       <section className="px-6 py-28 text-center">
         <Reveal>
           <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-ink-900/80 p-12 backdrop-blur-xl md:p-20">
-            <div className="absolute inset-0 bg-animated-gradient opacity-10" />
+            <div className="bg-animated-gradient absolute inset-0 opacity-10" />
             <div className="relative">
               <p className="mx-auto font-display text-3xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
                 Más inteligencia.
