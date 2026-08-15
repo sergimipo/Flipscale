@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   title: 'Flipscale — Inteligencia para revendedores',
   description:
     'Controla ingresos y gastos de Vinted, Wallapop y Etsy en tiempo real. Más inteligencia. Más crecimiento. Más beneficios.',
-  icons: ['/logo-dark.png'],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
