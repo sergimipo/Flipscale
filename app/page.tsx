@@ -184,7 +184,7 @@ export default function Home() {
             Para revendedores de Vinted, Wallapop y Etsy
           </div>
           <h1 className="animate-fade-up ad-2 font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-8xl">
-            Reventa con <span className="bg-animated-gradient bg-clip-text text-transparent">inteligencia.</span>
+            Reventa con <span className="text-gradient">inteligencia.</span>
           </h1>
           <p className="animate-fade-up ad-3 mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
             Flipscale convierte cada venta y cada gasto en decisiones. Beneficio real por
@@ -418,7 +418,7 @@ export default function Home() {
                 <br />
                 Más crecimiento.
                 <br />
-                <span className="bg-animated-gradient bg-clip-text text-transparent">Más beneficios.</span>
+                <span className="text-gradient">Más beneficios.</span>
               </p>
               <Link href="/register" className="btn-primary mt-10 inline-block">
                 Empieza gratis hoy
