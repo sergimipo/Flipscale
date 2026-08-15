@@ -231,7 +231,7 @@ export default function DashboardPage() {
                 <input
                   value={formAmount}
                   onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="4,99"
+                  placeholder={'4,99'}
                   className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
                 />
               </div>
