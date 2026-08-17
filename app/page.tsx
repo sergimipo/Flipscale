@@ -281,7 +281,7 @@ export default function Home() {
           <span className="transition hover:text-white">Vinted</span>
           <span className="transition hover:text-white">Wallapop</span>
           <span className="transition hover:text-white">Etsy</span>
-          <span className="text-xl font-semibold text-slate-600 transition hover:text-slate-400">+ otros</span>
+          <span className="text-xl font-semibold text-slate-600 transition hover:text-slate-400">Otros...</span>
         </div>
       </section>
 
