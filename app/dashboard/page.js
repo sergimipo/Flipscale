@@ -286,7 +286,7 @@ export default function DashboardPage() {
       {/* SIDEBAR: SOLO VISIBLE AL PULSAR EL LOGO */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r transition-transform duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-100'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } ${c.sidebar}`}
       >
         <div className={`flex h-16 items-center justify-between border-b px-6 ${c.row}`}>
