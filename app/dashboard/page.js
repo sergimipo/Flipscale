@@ -84,6 +84,7 @@ export default function DashboardPage() {
   const [theme, setTheme] = useState('dark');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -277,17 +278,39 @@ export default function DashboardPage() {
 
   return (
     <div className={`min-h-screen ${c.page}`}>
-      {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r md:flex ${c.sidebar}`}>
-        <div className="flex h-16 items-center gap-3 px-6">
-          <Logo className="h-8 w-8" />
-          <span className="font-display text-base font-semibold tracking-wide">
-            FLIP<span className="text-accent-500">SCALE</span>
-          </span>
+      {/* FONDO OSCURO CUANDO EL SIDEBAR ESTÁ ABIERTO */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* SIDEBAR: SOLO VISIBLE AL PULSAR EL LOGO */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r transition-transform duration-300 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-100'
+        } ${c.sidebar}`}
+      >
+        <div className={`flex h-16 items-center justify-between border-b px-6 ${c.row}`}>
+          <div className="flex items-center gap-3">
+            <Logo className="h-8 w-8" />
+            <span className="font-display text-base font-semibold tracking-wide">
+              FLIP<span className="text-accent-500">SCALE</span>
+            </span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className={`rounded-lg p-1.5 transition ${c.navIdle}`}
+            aria-label="Cerrar menú"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
+
         <nav className="flex-1 space-y-1 px-3 py-4">
           <Link
             href="/dashboard"
+            onClick={() => setSidebarOpen(false)}
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navActive}`}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -325,6 +348,7 @@ export default function DashboardPage() {
                 <Link
                   key={item.label}
                   href={item.href}
+                  onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${c.navIdle}`}
                 >
                   {item.icon}
@@ -334,111 +358,111 @@ export default function DashboardPage() {
             </div>
           </div>
         </nav>
+
         <div className={`border-t px-6 py-4 ${c.row}`}>
           <p className={`text-xs ${c.faint}`}>© 2026 Flipscale</p>
         </div>
       </aside>
 
       {/* HEADER */}
-      <header className={`sticky top-0 z-30 border-b backdrop-blur-xl md:pl-60 ${c.header}`}>
+      <header className={`sticky top-0 z-30 border-b backdrop-blur-xl ${c.header}`}>
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="relative flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
-              {(user?.email || 'U').charAt(0).toUpperCase()}
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold leading-tight">{user?.email}</p>
-              <p className={`text-xs ${c.faint}`}>Plan gratuito</p>
-            </div>
+          <div className="flex items-center gap-3">
+            {/* LOGO: ABRE EL SIDEBAR */}
             <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`}
-              aria-label="Ajustes"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`flex items-center gap-3 rounded-lg p-1.5 transition hover:opacity-80 ${
+                dark ? 'hover:bg-white/5' : 'hover:bg-slate-100'
+              }`}
+              aria-label="Abrir menú"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+              <Logo className="h-8 w-8" />
+              <span className="hidden font-display text-base font-semibold tracking-wide sm:block">
+                FLIP<span className="text-accent-500">SCALE</span>
+              </span>
             </button>
 
-            {settingsOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
-                <div className={`absolute left-0 top-12 z-20 w-64 rounded-xl border p-2 shadow-2xl ${c.card}`}>
-                  <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${c.faint}`}>Ajustes</div>
+            <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
 
-                  <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
-                    <span className="text-sm font-medium">Modo oscuro</span>
-                    <button
-                      onClick={() => setThemeAndSave(dark ? 'light' : 'dark')}
-                      className={`relative h-6 w-11 rounded-full transition ${dark ? 'bg-brand-500' : 'bg-slate-300'}`}
-                      aria-label="Cambiar tema"
+            {/* CUENTA + AJUSTES */}
+            <div className="relative flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
+                {(user?.email || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-semibold leading-tight">{user?.email}</p>
+                <p className={`text-xs ${c.faint}`}>Plan gratuito</p>
+              </div>
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`}
+                aria-label="Ajustes"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
+                  <div className={`absolute left-0 top-12 z-20 w-64 rounded-xl border p-2 shadow-2xl ${c.card}`}>
+                    <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${c.faint}`}>Ajustes</div>
+
+                    <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
+                      <span className="text-sm font-medium">Modo oscuro</span>
+                      <button
+                        onClick={() => setThemeAndSave(dark ? 'light' : 'dark')}
+                        className={`relative h-6 w-11 rounded-full transition ${dark ? 'bg-brand-500' : 'bg-slate-300'}`}
+                        aria-label="Cambiar tema"
+                      >
+                        <span
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                            dark ? 'left-[22px]' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <Link
+                      href="/pricing"
+                      onClick={() => setSettingsOpen(false)}
+                      className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
                     >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                          dark ? 'left-[22px]' : 'left-0.5'
-                        }`}
-                      />
+                      Plan y suscripción
+                    </Link>
+                    <Link
+                      href="/"
+                      className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
+                    >
+                      Ir a la web
+                    </Link>
+                    <div className={`my-1 h-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <button
+                      onClick={handleSignOut}
+                      className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-500/10"
+                    >
+                      Cerrar sesión
                     </button>
                   </div>
-
-                  <Link
-                    href="/pricing"
-                    onClick={() => setSettingsOpen(false)}
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
-                  >
-                    Plan y suscripción
-                  </Link>
-                  <Link
-                    href="/"
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
-                  >
-                    Ir a la web
-                  </Link>
-                  <div className={`my-1 h-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
-                  <button
-                    onClick={handleSignOut}
-                    className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-500/10"
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           <button onClick={() => setShowForm(!showForm)} className="btn-primary">
             {showForm ? 'Cerrar' : '+ Añadir'}
           </button>
         </div>
-
-        {/* NAV MÓVIL */}
-        <div className={`flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden ${c.row}`}>
-          <Link
-            href="/dashboard"
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium ${c.navActive}`}
-          >
-            Dashboard
-          </Link>
-          {toolItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${c.navIdle}`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
-        </div>
       </header>
 
       {/* MAIN */}
-      <main className="px-6 py-8 md:pl-60">
+      <main className="px-6 py-8">
         {/* FORMULARIO */}
         {showForm && (
           <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
