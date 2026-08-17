@@ -1,32 +1,71 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+
+function Logo({ className = 'h-10 w-10' }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="none" className={className} aria-label="Flipscale">
+      <path
+        d="M 196.59 712.97 C189.30,715.48 186.78,715.52 184.65,713.17 C183.15,711.50 183.00,704.89 183.00,638.74 C183.00,592.74 183.39,563.28 184.07,558.32 C185.36,548.88 189.99,534.51 194.17,527.00 C207.43,503.13 228.27,486.12 254.50,477.77 L 261.50 475.54 L 366.92 475.24 C448.78,475.01 472.52,475.22 473.10,476.16 C474.02,477.66 473.47,478.75 454.14,514.00 C437.10,545.05 433.93,549.27 424.20,553.83 L 418.50 556.50 L 342.31 557.00 L 266.13 557.50 L 262.96 560.50 C261.22,562.15 259.29,564.62 258.67,566.00 C257.90,567.69 257.37,584.01 257.02,616.56 L 256.50 664.61 L 252.72 672.26 C248.11,681.58 241.09,689.45 232.02,695.49 C224.29,700.62 205.45,709.92 196.59,712.97 ZM 188.49 496.25 C186.85,498.86 185.16,501.00 184.75,501.00 C183.61,501.00 183.86,422.63 185.03,412.97 C187.33,394.01 194.26,379.66 207.47,366.50 C217.71,356.30 224.17,352.13 236.74,347.63 L 245.50 344.50 L 399.25 344.23 C527.92,344.01 553.00,344.18 553.00,345.32 C553.00,346.70 544.23,363.22 526.10,396.00 C518.13,410.41 514.67,415.65 510.43,419.71 C508.95,421.13 507.93,422.31 506.74,423.29 C500.98,428.03 491.32,428.03 405.73,428.02 C399.00,428.02 391.78,428.01 384.07,428.02 C276.91,428.03 273.25,428.09 265.50,430.03 C247.63,434.49 228.73,446.88 212.87,464.52 C205.31,472.93 193.53,488.27 188.49,496.25 ZM 390.03 710.95 C380.25,712.16 352.16,712.15 343.81,710.92 C329.90,708.88 317.61,704.11 310.74,698.08 C308.90,696.46 306.07,692.74 304.45,689.82 L 301.50 684.50 L 300.91 604.71 L 303.71 606.57 C340.30,630.90 378.65,638.37 428.50,630.88 C466.27,625.20 504.22,611.80 541.65,590.93 C580.14,569.46 613.48,544.60 647.16,512.25 C653.60,506.06 659.16,501.00 659.51,501.00 C660.23,501.00 643.46,525.77 635.13,537.00 C603.91,579.10 573.69,611.27 537.50,640.92 C488.77,680.85 437.92,705.00 390.03,710.95 ZM 595.02 519.99 C593.92,520.58 584.25,521.00 571.74,521.00 C569.38,521.00 567.24,521.02 565.29,521.04 C555.85,521.12 550.98,521.17 548.49,518.76 C545.84,516.19 545.88,510.85 545.97,499.82 C545.98,497.68 546.00,495.33 546.00,492.74 C546.00,469.46 546.03,469.09 548.22,467.56 C550.07,466.26 554.16,466.00 572.57,466.00 C592.39,466.00 594.85,466.18 596.21,467.75 C597.42,469.14 597.86,473.79 598.35,490.50 C599.01,512.68 598.39,518.19 595.02,519.99 Z"
+        fill="#09868b"
+      />
+      <path
+        d="M 533.41 684.05 C516.46,687.97 510.70,688.82 512.55,687.14 C513.07,686.66 517.10,683.88 521.50,680.95 C573.28,646.48 632.69,585.39 690.18,507.50 C712.00,477.95 736.93,439.88 758.95,402.50 C769.31,384.93 774.68,375.43 787.53,352.00 C799.87,329.51 801.06,327.15 800.29,326.69 C799.86,326.42 796.35,325.90 792.50,325.53 C788.65,325.16 780.33,324.25 774.00,323.50 C767.67,322.75 759.01,321.85 754.75,321.49 C750.49,321.12 747.00,320.44 747.00,319.96 C747.00,319.15 759.95,311.32 828.00,270.99 C843.12,262.02 865.96,248.46 878.75,240.85 C891.54,233.23 902.45,227.00 903.00,227.00 C903.66,227.00 903.99,258.83 903.96,320.75 L 903.92 414.50 L 901.07 411.18 C899.51,409.35 896.49,405.30 894.37,402.18 C882.18,384.25 872.63,371.00 871.90,371.00 C871.45,371.00 865.44,382.14 858.56,395.75 C825.16,461.80 796.13,506.29 757.94,550.00 C724.08,588.74 687.82,618.13 643.87,642.48 C609.79,661.35 575.07,674.42 533.41,684.05 ZM 675.37 431.93 C672.87,433.89 671.50,434.00 648.82,434.00 L 624.91 434.00 L 622.45 431.55 L 620.00 429.09 L 620.00 376.90 L 622.70 374.40 L 625.40 371.90 L 649.79 372.20 C674.05,372.50 674.19,372.51 676.09,374.86 C677.86,377.05 678.00,379.12 678.00,403.54 L 678.00 429.85 Z"
+        fill="#f9a712"
+      />
+    </svg>
+  );
+}
+
+const PLATFORM_COLORS = {
+  vinted: '#14B8A6',
+  wallapop: '#F59E0B',
+  etsy: '#f97316',
+  otra: '#64748b',
+  producto: '#3b82f6',
+  impuestos: '#8b5cf6',
+  embalaje: '#ec4899',
+};
 
 const fmt = (n) => n.toFixed(2) + ' €';
-
-const CATEGORIES = {
-  ingreso: ['vinted', 'wallapop', 'etsy', 'otra'],
-  gasto: ['producto', 'impuestos', 'embalaje'],
+const fmtShort = (n) => {
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k €';
+  return n.toFixed(0) + ' €';
 };
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
-  const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [successMessage, setSuccessMessage] = useState('');
   const [transactions, setTransactions] = useState([]);
-
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('month');
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState('ingreso');
   const [formCategory, setFormCategory] = useState('vinted');
   const [formAmount, setFormAmount] = useState('');
   const [formNote, setFormNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
 
   const router = useRouter();
   const supabase = createClient();
+
+  const CATEGORIES = {
+    ingreso: ['vinted', 'wallapop', 'etsy', 'otra'],
+    gasto: ['producto', 'impuestos', 'embalaje'],
+  };
 
   const loadTransactions = async () => {
     const { data } = await supabase
@@ -37,8 +76,6 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    let channel;
-
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -46,51 +83,22 @@ export default function DashboardPage() {
         return;
       }
       setUser(user);
-
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('success') === 'true') {
-        const sessionId = urlParams.get('session_id');
-        if (sessionId) {
-          await fetch('/api/confirm-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId }),
-          });
-          setSuccessMessage('✅ ¡Pago completado! Tu suscripción está activa.');
-          window.history.replaceState({}, document.title, '/dashboard');
-        }
-      }
-
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      setSubscription(sub);
       setLoading(false);
-
-      channel = supabase
-        .channel('cambios-transacciones-' + user.id)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'transactions',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => loadTransactions()
-        )
-        .subscribe();
     };
 
     getUser();
     loadTransactions();
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
+    const channel = supabase
+      .channel('cambios-transacciones')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        () => loadTransactions()
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleSignOut = async () => {
@@ -101,13 +109,9 @@ export default function DashboardPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const amount = Number(String(formAmount).replace(',', '.'));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setFormError('Escribe un importe válido, por ejemplo 4,99');
-      return;
-    }
+    if (!Number.isFinite(amount) || amount <= 0) return;
     setSaving(true);
-    setFormError('');
-    const { error } = await supabase.from('transactions').insert({
+    await supabase.from('transactions').insert({
       user_id: user.id,
       type: formType,
       category: formCategory,
@@ -115,111 +119,163 @@ export default function DashboardPage() {
       note: formNote.trim() || null,
     });
     setSaving(false);
-    if (error) {
-      setFormError(error.message);
-      return;
-    }
     setFormAmount('');
     setFormNote('');
     setShowForm(false);
     loadTransactions();
   };
 
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date();
+    
+    if (period === 'day') cutoff.setDate(now.getDate() - 1);
+    else if (period === 'week') cutoff.setDate(now.getDate() - 7);
+    else if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (period === 'year') cutoff.setFullYear(now.getFullYear() - 1);
+    
+    return transactions.filter((t) => new Date(t.created_at) >= cutoff);
+  }, [transactions, period]);
+
+  const chartData = useMemo(() => {
+    const grouped = {};
+    const platforms = new Set();
+
+    filteredTransactions.forEach((t) => {
+      const date = new Date(t.created_at);
+      let key;
+      
+      if (period === 'day') {
+        key = date.toISOString().split('T')[0];
+      } else if (period === 'week') {
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        key = weekStart.toISOString().split('T')[0];
+      } else if (period === 'month') {
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      } else {
+        key = String(date.getFullYear());
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = { date: key };
+      }
+      
+      const cat = t.category.toLowerCase();
+      platforms.add(cat);
+      grouped[key][cat] = (grouped[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
+    });
+
+    return {
+      data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
+      platforms: Array.from(platforms),
+    };
+  }, [filteredTransactions, period]);
+
+  const platformBreakdown = useMemo(() => {
+    const map = {};
+    filteredTransactions.forEach((t) => {
+      const cat = t.category.toLowerCase();
+      if (!map[cat]) map[cat] = { ingresos: 0, gastos: 0, count: 0 };
+      if (t.type === 'ingreso') {
+        map[cat].ingresos += Number(t.amount);
+      } else {
+        map[cat].gastos += Number(t.amount);
+      }
+      map[cat].count++;
+    });
+    
+    return Object.entries(map)
+      .map(([name, data]) => ({
+        name,
+        ...data,
+        beneficio: data.ingresos - data.gastos,
+        color: PLATFORM_COLORS[name] || '#64748b',
+      }))
+      .sort((a, b) => b.beneficio - a.beneficio);
+  }, [filteredTransactions]);
+
+  const kpis = useMemo(() => {
+    const sum = (list) => list.reduce((s, t) => s + Number(t.amount), 0);
+    const ing = filteredTransactions.filter((t) => t.type === 'ingreso');
+    const gas = filteredTransactions.filter((t) => t.type === 'gasto');
+    const ingresos = sum(ing);
+    const gastos = sum(gas);
+    const beneficio = ingresos - gastos;
+    const margen = ingresos > 0 ? (beneficio / ingresos) * 100 : 0;
+    const ticketMedio = ing.length > 0 ? ingresos / ing.length : 0;
+    const transacciones = filteredTransactions.length;
+
+    return { ingresos, gastos, beneficio, margen, ticketMedio, transacciones };
+  }, [filteredTransactions]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Cargando dashboard...</p>
+      <div className="flex min-h-screen items-center justify-center bg-paper">
+        <div className="text-center">
+          <Logo className="mx-auto h-12 w-12 animate-pulse" />
+          <p className="mt-4 text-sm text-slate-500">Cargando dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  const hasSubscription = subscription && subscription.status === 'active';
-
-  const sum = (list) => list.reduce((s, t) => s + Number(t.amount), 0);
-  const ing = transactions.filter((t) => t.type === 'ingreso');
-  const gas = transactions.filter((t) => t.type === 'gasto');
-  const ingresos = sum(ing);
-  const gastos = sum(gas);
-  const beneficio = ingresos - gastos;
-
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Mi Dashboard</h1>
-          <button
-            onClick={handleSignOut}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 text-sm font-medium"
-          >
-            Cerrar sesión
-          </button>
-        </div>
-
-        {successMessage && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
-            <p className="text-green-800 font-bold">{successMessage}</p>
+    <div className="min-h-screen bg-paper">
+      {/* HEADER */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <Logo />
+            <span className="font-display text-lg font-semibold tracking-wide">
+              FLIP<span className="text-accent-500">SCALE</span>
+            </span>
           </div>
-        )}
-
-        <div className="bg-white p-6 rounded-lg shadow mb-8">
-          <h2 className="text-xl font-semibold mb-2">Bienvenido, {user?.email}</h2>
-          <p className="text-gray-600">
-            Plan actual: {hasSubscription ? (
-              <span className="text-green-600 font-bold">{subscription.plan.toUpperCase()} (Activo)</span>
-            ) : (
-              <span className="text-gray-500">Gratuito</span>
-            )}
-          </p>
-          {!hasSubscription && (
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/pricing')}
-              className="mt-4 bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 text-sm font-medium"
+              onClick={() => setShowForm(!showForm)}
+              className="btn-primary"
             >
-              Mejorar plan →
+              {showForm ? 'Cerrar' : '＋ Añadir'}
             </button>
-          )}
-        </div>
-
-        {/* 💶 FINANZAS EN VIVO */}
-        <div className="bg-white p-6 rounded-lg shadow mb-8 border-l-4 border-green-500">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">💶 Finanzas</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                En vivo
-              </span>
-              <button
-                onClick={() => setShowForm(!showForm)}
-                className="bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 text-sm font-medium"
-              >
-                {showForm ? 'Cerrar' : '＋ Añadir'}
-              </button>
-            </div>
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-slate-600 transition hover:text-slate-900"
+            >
+              Salir
+            </button>
           </div>
+        </div>
+      </header>
 
-          {showForm && (
-            <form onSubmit={handleSubmit} className="mb-6 rounded-lg bg-gray-50 p-4 grid gap-3 md:grid-cols-5">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        {/* FORMULARIO */}
+        {showForm && (
+          <form
+            onSubmit={handleSubmit}
+            className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-card"
+          >
+            <div className="grid gap-4 md:grid-cols-5">
               <div>
-                <label className="text-xs font-medium text-gray-600">Tipo</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">Tipo</label>
                 <select
                   value={formType}
                   onChange={(e) => {
                     setFormType(e.target.value);
                     setFormCategory(CATEGORIES[e.target.value][0]);
                   }}
-                  className="mt-1 w-full rounded border border-gray-300 p-2 text-sm bg-white"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 >
                   <option value="ingreso">💰 Ingreso</option>
                   <option value="gasto">💸 Gasto</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Categoría</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">Categoría</label>
                 <select
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
-                  className="mt-1 w-full rounded border border-gray-300 p-2 text-sm bg-white capitalize"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm capitalize"
                 >
                   {CATEGORIES[formType].map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -227,120 +283,235 @@ export default function DashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Importe (€)</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">Importe (€)</label>
                 <input
                   value={formAmount}
                   onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder={'4,99'}
-                  className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
+                  placeholder="4,99"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Nota</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">Nota</label>
                 <input
                   value={formNote}
                   onChange={(e) => setFormNote(e.target.value)}
                   placeholder="opcional"
-                  className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 />
               </div>
               <div className="flex items-end gap-2">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                  className="btn-primary flex-1 disabled:opacity-60"
                 >
                   {saving ? 'Guardando…' : 'Guardar'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 text-sm font-medium"
-                >
-                  Cancelar
-                </button>
               </div>
-              {formError && (
-                <p className="text-red-600 text-xs md:col-span-5">{formError}</p>
-              )}
-            </form>
-          )}
+            </div>
+          </form>
+        )}
 
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-xs text-green-700 font-medium">Ingresos</p>
-              <p className="text-xl font-bold text-green-700">{fmt(ingresos)}</p>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <p className="text-xs text-red-700 font-medium">Gastos</p>
-              <p className="text-xl font-bold text-red-700">{fmt(gastos)}</p>
-            </div>
-            <div className={`p-4 rounded-lg ${beneficio >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
-              <p className={`text-xs font-medium ${beneficio >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Beneficio</p>
-              <p className={`text-xl font-bold ${beneficio >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>{fmt(beneficio)}</p>
-            </div>
+        {/* KPIs */}
+        <div className="mb-8 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Ingresos</p>
+            <p className="mt-1 font-display text-2xl font-bold text-brand-600">{fmt(kpis.ingresos)}</p>
           </div>
-
-          {transactions.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-500">
-                    <th className="pb-2 font-medium">Tipo</th>
-                    <th className="pb-2 font-medium">Categoría</th>
-                    <th className="pb-2 font-medium">Nota</th>
-                    <th className="pb-2 font-medium">Fecha</th>
-                    <th className="pb-2 text-right font-medium">Importe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.slice(0, 10).map((t) => (
-                    <tr key={t.id} className="border-b border-gray-100">
-                      <td className="py-2">{t.type === 'ingreso' ? '💰' : '💸'}</td>
-                      <td className="py-2 capitalize">{t.category}</td>
-                      <td className="py-2 text-gray-500">{t.note || '—'}</td>
-                      <td className="py-2 text-gray-500">
-                        {new Date(t.created_at).toLocaleDateString('es-ES')}
-                      </td>
-                      <td className={`py-2 text-right font-semibold ${t.type === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
-                        {t.type === 'ingreso' ? '+' : '-'}{fmt(Number(t.amount))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {transactions.length === 0 && (
-            <p className="text-center text-gray-400 py-6">
-              Aún no hay movimientos. Añade uno con "＋ Añadir" o desde el atajo de tu iPhone. 📱
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Gastos</p>
+            <p className="mt-1 font-display text-2xl font-bold text-red-600">{fmt(kpis.gastos)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Beneficio</p>
+            <p className={`mt-1 font-display text-2xl font-bold ${kpis.beneficio >= 0 ? 'text-brand-600' : 'text-red-600'}`}>
+              {fmt(kpis.beneficio)}
             </p>
-          )}
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Margen</p>
+            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{kpis.margen.toFixed(1)}%</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Ticket medio</p>
+            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{fmt(kpis.ticketMedio)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-slate-500">Transacciones</p>
+            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{kpis.transacciones}</p>
+          </div>
         </div>
 
-        {/* 🛠️ HERRAMIENTAS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500 hover:shadow-lg transition">
-            <h3 className="text-lg font-bold mb-2">🗑️ Borrado de Metadatos</h3>
-            <p className="text-gray-500 text-sm mb-4">Limpia la información oculta de tus fotos para vender con privacidad.</p>
-            <button
-              onClick={() => router.push('/tools')}
-              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm font-medium"
-            >
-              Usar ahora →
-            </button>
+        {/* SELECTOR DE PERIODO */}
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold">Análisis</h2>
+          <div className="flex gap-2 rounded-lg bg-slate-100 p-1">
+            {['day', 'week', 'month', 'year'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                  period === p ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-600 hover:text-ink-950'
+                }`}
+              >
+                {p === 'day' ? 'Día' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* GRÁFICO PRINCIPAL */}
+        <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+          <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value) => fmt(value)}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                {chartData.platforms.map((platform) => (
+                  <Line
+                    key={platform}
+                    type="monotone"
+                    dataKey={platform}
+                    stroke={PLATFORM_COLORS[platform]}
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* DESGLOSE POR PLATAFORMA */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+            <h3 className="mb-4 font-display text-lg font-semibold">Beneficio por plataforma</h3>
+            <div className="space-y-4">
+              {platformBreakdown.map((platform) => (
+                <div key={platform.name}>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: platform.color }}
+                      />
+                      <span className="font-medium capitalize">{platform.name}</span>
+                      <span className="text-xs text-slate-500">({platform.count} mov.)</span>
+                    </div>
+                    <span className={`font-semibold ${platform.beneficio >= 0 ? 'text-brand-600' : 'text-red-600'}`}>
+                      {fmt(platform.beneficio)}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <span className="w-16">Ingresos:</span>
+                      <div className="flex-1 rounded-full bg-slate-100">
+                        <div
+                          className="h-1.5 rounded-full bg-brand-500"
+                          style={{ width: `${(platform.ingresos / (platform.ingresos + platform.gastos)) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-20 text-right">{fmt(platform.ingresos)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <span className="w-16">Gastos:</span>
+                      <div className="flex-1 rounded-full bg-slate-100">
+                        <div
+                          className="h-1.5 rounded-full bg-red-500"
+                          style={{ width: `${(platform.gastos / (platform.ingresos + platform.gastos)) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-20 text-right">{fmt(platform.gastos)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {platformBreakdown.length === 0 && (
+                <p className="text-center text-sm text-slate-400">Sin datos en este periodo</p>
+              )}
+            </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-500 hover:shadow-lg transition">
-            <h3 className="text-lg font-bold mb-2">✨ Optimizador Descripciones IA</h3>
-            <p className="text-gray-500 text-sm mb-4">Crea descripciones perfectas y multilingües a partir de una foto.</p>
-            <button
-              onClick={() => router.push('/tools/description')}
-              className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm font-medium"
-            >
-              Usar ahora →
-            </button>
+          {/* GRÁFICO DE BARRAS */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+            <h3 className="mb-4 font-display text-lg font-semibold">Comparativa de plataformas</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={platformBreakdown} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" stroke="#64748b" style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                  <YAxis dataKey="name" type="category" stroke="#64748b" style={{ fontSize: '12px' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                    formatter={(value) => fmt(value)}
+                  />
+                  <Bar dataKey="ingresos" fill="#14B8A6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="gastos" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* TABLA DE TRANSACCIONES */}
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white shadow-card">
+          <div className="border-b border-slate-200 px-6 py-4">
+            <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="px-6 py-3 font-medium">Tipo</th>
+                  <th className="px-6 py-3 font-medium">Plataforma</th>
+                  <th className="px-6 py-3 font-medium">Nota</th>
+                  <th className="px-6 py-3 font-medium">Fecha</th>
+                  <th className="px-6 py-3 text-right font-medium">Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.slice(0, 20).map((t) => (
+                  <tr key={t.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-6 py-3">{t.type === 'ingreso' ? '💰' : '💸'}</td>
+                    <td className="px-6 py-3">
+                      <span className="flex items-center gap-2">
+                        <div
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: PLATFORM_COLORS[t.category] || '#64748b' }}
+                        />
+                        <span className="capitalize">{t.category}</span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">{t.note || '—'}</td>
+                    <td className="px-6 py-3 text-slate-600">
+                      {new Date(t.created_at).toLocaleDateString('es-ES')}
+                    </td>
+                    <td className={`px-6 py-3 text-right font-semibold ${t.type === 'ingreso' ? 'text-brand-600' : 'text-red-600'}`}>
+                      {t.type === 'ingreso' ? '+' : '-'}{fmt(Number(t.amount))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
