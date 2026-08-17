@@ -83,6 +83,7 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState('dark');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -107,7 +108,7 @@ export default function DashboardPage() {
   const c = {
     page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
     header: dark ? 'border-white/10 bg-ink-950/80' : 'border-slate-200 bg-white/80',
-    sidebar: dark ? 'border-white/10 bg-ink-900/60' : 'border-slate-200 bg-white',
+    sidebar: dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white',
     card: dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white',
     sub: dark ? 'text-slate-400' : 'text-slate-600',
     faint: dark ? 'text-slate-500' : 'text-slate-400',
@@ -253,22 +254,10 @@ export default function DashboardPage() {
   const axisColor = dark ? '#64748b' : '#94a3b8';
   const gridColor = dark ? 'rgba(255,255,255,0.06)' : '#e2e8f0';
 
-  const navItems = [
-    {
-      label: 'Dashboard',
-      href: '/dashboard',
-      active: true,
-      icon: (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14 7h7v7" />
-        </svg>
-      ),
-    },
+  const toolItems = [
     {
       label: 'Borrado de metadatos',
       href: '/tools',
-      active: false,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -278,7 +267,6 @@ export default function DashboardPage() {
     {
       label: 'Descripciones IA',
       href: '/tools/description',
-      active: false,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -298,18 +286,53 @@ export default function DashboardPage() {
           </span>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                item.active ? c.navActive : c.navIdle
-              }`}
+          <Link
+            href="/dashboard"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navActive}`}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 7h7v7" />
+            </svg>
+            Dashboard
+          </Link>
+
+          {/* HERRAMIENTAS: DESPLEGABLE */}
+          <button
+            onClick={() => setToolsOpen(!toolsOpen)}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
+          >
+            <span className="flex items-center gap-3">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Herramientas
+            </span>
+            <svg
+              className={`h-4 w-4 transition-transform duration-300 ${toolsOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div className={`overflow-hidden transition-all duration-300 ${toolsOpen ? 'max-h-40' : 'max-h-0'}`}>
+            <div className={`ml-6 space-y-1 border-l pl-3 ${dark ? 'border-white/10' : 'border-slate-200'}`}>
+              {toolItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${c.navIdle}`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </nav>
         <div className={`border-t px-6 py-4 ${c.row}`}>
           <p className={`text-xs ${c.faint}`}>© 2026 Flipscale</p>
@@ -319,7 +342,6 @@ export default function DashboardPage() {
       {/* HEADER */}
       <header className={`sticky top-0 z-30 border-b backdrop-blur-xl md:pl-60 ${c.header}`}>
         <div className="flex h-16 items-center justify-between px-6">
-          {/* CUENTA + AJUSTES (arriba izquierda) */}
           <div className="relative flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
               {(user?.email || 'U').charAt(0).toUpperCase()}
@@ -343,14 +365,12 @@ export default function DashboardPage() {
               </svg>
             </button>
 
-            {/* MENÚ DE AJUSTES */}
             {settingsOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
                 <div className={`absolute left-0 top-12 z-20 w-64 rounded-xl border p-2 shadow-2xl ${c.card}`}>
                   <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${c.faint}`}>Ajustes</div>
 
-                  {/* MODO OSCURO / CLARO */}
                   <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
                     <span className="text-sm font-medium">Modo oscuro</span>
                     <button
@@ -398,13 +418,17 @@ export default function DashboardPage() {
 
         {/* NAV MÓVIL */}
         <div className={`flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden ${c.row}`}>
-          {navItems.map((item) => (
+          <Link
+            href="/dashboard"
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium ${c.navActive}`}
+          >
+            Dashboard
+          </Link>
+          {toolItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}
-              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
-                item.active ? c.navActive : c.navIdle
-              }`}
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${c.navIdle}`}
             >
               {item.icon}
               {item.label}
@@ -414,115 +438,206 @@ export default function DashboardPage() {
       </header>
 
       {/* MAIN */}
-      <main className="px-6 py-8 md:pl-66">
-        <div className="md:pl-0">
-          {/* FORMULARIO */}
-          {showForm && (
-            <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
-              <div className="grid gap-4 md:grid-cols-5">
-                <div>
-                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Tipo</label>
-                  <select
-                    value={formType}
-                    onChange={(e) => {
-                      setFormType(e.target.value);
-                      setFormCategory(CATEGORIES[e.target.value][0]);
-                    }}
-                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
-                  >
-                    <option value="ingreso">Ingreso</option>
-                    <option value="gasto">Gasto</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Plataforma</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className={`w-full rounded-lg border px-3 py-2 text-sm capitalize ${c.input}`}
-                  >
-                    {CATEGORIES[formType].map((cat) => (
-                      <option key={cat} value={cat}>
-                        {(PLATFORMS[cat] || PLATFORMS.otra).label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Importe (€)</label>
-                  <input
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    placeholder="4,99"
-                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
-                  />
-                </div>
-                <div>
-                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Nota</label>
-                  <input
-                    value={formNote}
-                    onChange={(e) => setFormNote(e.target.value)}
-                    placeholder="opcional"
-                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-60">
-                    {saving ? 'Guardando…' : 'Guardar'}
-                  </button>
-                </div>
+      <main className="px-6 py-8 md:pl-60">
+        {/* FORMULARIO */}
+        {showForm && (
+          <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
+            <div className="grid gap-4 md:grid-cols-5">
+              <div>
+                <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Tipo</label>
+                <select
+                  value={formType}
+                  onChange={(e) => {
+                    setFormType(e.target.value);
+                    setFormCategory(CATEGORIES[e.target.value][0]);
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                >
+                  <option value="ingreso">Ingreso</option>
+                  <option value="gasto">Gasto</option>
+                </select>
               </div>
-            </form>
-          )}
+              <div>
+                <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Plataforma</label>
+                <select
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm capitalize ${c.input}`}
+                >
+                  {CATEGORIES[formType].map((cat) => (
+                    <option key={cat} value={cat}>
+                      {(PLATFORMS[cat] || PLATFORMS.otra).label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Importe (€)</label>
+                <input
+                  value={formAmount}
+                  onChange={(e) => setFormAmount(e.target.value)}
+                  placeholder="4,99"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                />
+              </div>
+              <div>
+                <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Nota</label>
+                <input
+                  value={formNote}
+                  onChange={(e) => setFormNote(e.target.value)}
+                  placeholder="opcional"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                />
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-60">
+                  {saving ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
 
-          {/* KPIs */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {[
-              { label: 'Ingresos', value: fmt(kpis.ingresos), color: 'text-brand-500' },
-              { label: 'Gastos', value: fmt(kpis.gastos), color: 'text-red-500' },
-              { label: 'Beneficio', value: fmt(kpis.beneficio), color: kpis.beneficio >= 0 ? 'text-brand-500' : 'text-red-500' },
-              { label: 'Margen', value: kpis.margen.toFixed(1) + '%', color: '' },
-              { label: 'Ticket medio', value: fmt(kpis.ticketMedio), color: '' },
-              { label: 'Movimientos', value: String(kpis.transacciones), color: '' },
-            ].map((k) => (
-              <div key={k.label} className={`rounded-xl border p-5 ${c.card}`}>
-                <p className={`text-xs font-medium ${c.sub}`}>{k.label}</p>
-                <p className={`mt-1 font-display text-2xl font-bold ${k.color}`}>{k.value}</p>
-              </div>
+        {/* KPIs */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {[
+            { label: 'Ingresos', value: fmt(kpis.ingresos), color: 'text-brand-500' },
+            { label: 'Gastos', value: fmt(kpis.gastos), color: 'text-red-500' },
+            { label: 'Beneficio', value: fmt(kpis.beneficio), color: kpis.beneficio >= 0 ? 'text-brand-500' : 'text-red-500' },
+            { label: 'Margen', value: kpis.margen.toFixed(1) + '%', color: '' },
+            { label: 'Ticket medio', value: fmt(kpis.ticketMedio), color: '' },
+            { label: 'Movimientos', value: String(kpis.transacciones), color: '' },
+          ].map((k) => (
+            <div key={k.label} className={`rounded-xl border p-5 ${c.card}`}>
+              <p className={`text-xs font-medium ${c.sub}`}>{k.label}</p>
+              <p className={`mt-1 font-display text-2xl font-bold ${k.color}`}>{k.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* PERIODO */}
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold">Análisis</h2>
+          <div className={`flex gap-1 rounded-lg p-1 ${dark ? 'bg-ink-800' : 'bg-slate-100'}`}>
+            {['day', 'week', 'month', 'year'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                  period === p
+                    ? dark
+                      ? 'bg-ink-950 text-white shadow'
+                      : 'bg-white text-ink-950 shadow-sm'
+                    : c.sub
+                }`}
+              >
+                {p === 'day' ? 'Día' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
+              </button>
             ))}
           </div>
+        </div>
 
-          {/* PERIODO */}
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-display text-xl font-bold">Análisis</h2>
-            <div className={`flex gap-1 rounded-lg p-1 ${dark ? 'bg-ink-800' : 'bg-slate-100'}`}>
-              {['day', 'week', 'month', 'year'].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
-                    period === p
-                      ? dark
-                        ? 'bg-ink-950 text-white shadow'
-                        : 'bg-white text-ink-950 shadow-sm'
-                      : c.sub
-                  }`}
-                >
-                  {p === 'day' ? 'Día' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
-                </button>
+        {/* GRÁFICO PRINCIPAL */}
+        <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
+          <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} />
+                <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: dark ? '#0f1a2e' : '#fff',
+                    border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    color: dark ? '#fff' : '#0B1220',
+                  }}
+                  formatter={(value) => fmt(Number(value))}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                {chartData.platforms.map((platform) => (
+                  <Line
+                    key={platform}
+                    type="monotone"
+                    dataKey={platform}
+                    name={(PLATFORMS[platform] || PLATFORMS.otra).label}
+                    stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* DESGLOSES */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className={`rounded-xl border p-6 ${c.card}`}>
+            <h3 className="mb-4 font-display text-lg font-semibold">Rendimiento por plataforma</h3>
+            <div className="space-y-5">
+              {platformBreakdown.map((p) => (
+                <div key={p.name}>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <PlatformIcon name={p.name} />
+                      <span className="font-medium capitalize">{p.name}</span>
+                      <span className={`text-xs ${c.faint}`}>{p.count} mov.</span>
+                    </div>
+                    <span className={`font-semibold ${p.beneficio >= 0 ? 'text-brand-500' : 'text-red-500'}`}>
+                      {fmt(p.beneficio)}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`w-14 ${c.sub}`}>Ingresos</span>
+                      <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{
+                            width: `${(p.ingresos / (p.ingresos + p.gastos || 1)) * 100}%`,
+                            backgroundColor: p.color,
+                          }}
+                        />
+                      </div>
+                      <span className={`w-20 text-right ${c.sub}`}>{fmt(p.ingresos)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`w-14 ${c.sub}`}>Gastos</span>
+                      <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div
+                          className="h-1.5 rounded-full bg-red-500"
+                          style={{ width: `${(p.gastos / (p.ingresos + p.gastos || 1)) * 100}%` }}
+                        />
+                      </div>
+                      <span className={`w-20 text-right ${c.sub}`}>{fmt(p.gastos)}</span>
+                    </div>
+                  </div>
+                </div>
               ))}
+              {platformBreakdown.length === 0 && (
+                <p className={`py-6 text-center text-sm ${c.faint}`}>Sin datos en este periodo</p>
+              )}
             </div>
           </div>
 
-          {/* GRÁFICO PRINCIPAL */}
-          <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
-            <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
+          <div className={`rounded-xl border p-6 ${c.card}`}>
+            <h3 className="mb-4 font-display text-lg font-semibold">Ingresos vs gastos</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData.data}>
+                <BarChart data={platformBreakdown} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                  <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} />
-                  <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                  <XAxis type="number" stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke={axisColor}
+                    style={{ fontSize: '12px' }}
+                    width={80}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: dark ? '#0f1a2e' : '#fff',
@@ -533,160 +648,67 @@ export default function DashboardPage() {
                     }}
                     formatter={(value) => fmt(Number(value))}
                   />
-                  <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  {chartData.platforms.map((platform) => (
-                    <Line
-                      key={platform}
-                      type="monotone"
-                      dataKey={platform}
-                      name={(PLATFORMS[platform] || PLATFORMS.otra).label}
-                      stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  ))}
-                </LineChart>
+                  <Bar dataKey="ingresos" name="Ingresos" fill="#14B8A6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
 
-          {/* DESGLOSES */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className={`rounded-xl border p-6 ${c.card}`}>
-              <h3 className="mb-4 font-display text-lg font-semibold">Rendimiento por plataforma</h3>
-              <div className="space-y-5">
-                {platformBreakdown.map((p) => (
-                  <div key={p.name}>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <PlatformIcon name={p.name} />
-                        <span className="font-medium capitalize">{p.name}</span>
-                        <span className={`text-xs ${c.faint}`}>{p.count} mov.</span>
-                      </div>
-                      <span className={`font-semibold ${p.beneficio >= 0 ? 'text-brand-500' : 'text-red-500'}`}>
-                        {fmt(p.beneficio)}
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className={`w-14 ${c.sub}`}>Ingresos</span>
-                        <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                          <div
-                            className="h-1.5 rounded-full"
-                            style={{
-                              width: `${(p.ingresos / (p.ingresos + p.gastos || 1)) * 100}%`,
-                              backgroundColor: p.color,
-                            }}
-                          />
-                        </div>
-                        <span className={`w-20 text-right ${c.sub}`}>{fmt(p.ingresos)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className={`w-14 ${c.sub}`}>Gastos</span>
-                        <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                          <div
-                            className="h-1.5 rounded-full bg-red-500"
-                            style={{ width: `${(p.gastos / (p.ingresos + p.gastos || 1)) * 100}%` }}
-                          />
-                        </div>
-                        <span className={`w-20 text-right ${c.sub}`}>{fmt(p.gastos)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {platformBreakdown.length === 0 && (
-                  <p className={`py-6 text-center text-sm ${c.faint}`}>Sin datos en este periodo</p>
-                )}
-              </div>
-            </div>
-
-            <div className={`rounded-xl border p-6 ${c.card}`}>
-              <h3 className="mb-4 font-display text-lg font-semibold">Ingresos vs gastos</h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={platformBreakdown} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis type="number" stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      stroke={axisColor}
-                      style={{ fontSize: '12px' }}
-                      width={80}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: dark ? '#0f1a2e' : '#fff',
-                        border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: dark ? '#fff' : '#0B1220',
-                      }}
-                      formatter={(value) => fmt(Number(value))}
-                    />
-                    <Bar dataKey="ingresos" name="Ingresos" fill="#14B8A6" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+        {/* TABLA */}
+        <div className={`mt-8 rounded-xl border ${c.card}`}>
+          <div className={`border-b px-6 py-4 ${c.row}`}>
+            <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
           </div>
-
-          {/* TABLA */}
-          <div className={`mt-8 rounded-xl border ${c.card}`}>
-            <div className={`border-b px-6 py-4 ${c.row}`}>
-              <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className={`border-b text-left ${c.row} ${c.sub}`}>
-                    <th className="px-6 py-3 font-medium">Tipo</th>
-                    <th className="px-6 py-3 font-medium">Plataforma</th>
-                    <th className="px-6 py-3 font-medium">Nota</th>
-                    <th className="px-6 py-3 font-medium">Fecha</th>
-                    <th className="px-6 py-3 text-right font-medium">Importe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.slice(0, 20).map((t) => (
-                    <tr key={t.id} className={`border-b last:border-0 ${c.rowSoft}`}>
-                      <td className="px-6 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            t.type === 'ingreso'
-                              ? 'bg-brand-500/10 text-brand-500'
-                              : 'bg-red-500/10 text-red-500'
-                          }`}
-                        >
-                          <ArrowIcon up={t.type === 'ingreso'} />
-                          {t.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3">
-                        <span className="flex items-center gap-2">
-                          <PlatformIcon name={String(t.category).toLowerCase()} size={20} />
-                          <span className="capitalize">{t.category}</span>
-                        </span>
-                      </td>
-                      <td className={`px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
-                      <td className={`px-6 py-3 ${c.sub}`}>
-                        {new Date(t.created_at).toLocaleDateString('es-ES')}
-                      </td>
-                      <td
-                        className={`px-6 py-3 text-right font-semibold ${
-                          t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={`border-b text-left ${c.row} ${c.sub}`}>
+                  <th className="px-6 py-3 font-medium">Tipo</th>
+                  <th className="px-6 py-3 font-medium">Plataforma</th>
+                  <th className="px-6 py-3 font-medium">Nota</th>
+                  <th className="px-6 py-3 font-medium">Fecha</th>
+                  <th className="px-6 py-3 text-right font-medium">Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.slice(0, 20).map((t) => (
+                  <tr key={t.id} className={`border-b last:border-0 ${c.rowSoft}`}>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          t.type === 'ingreso'
+                            ? 'bg-brand-500/10 text-brand-500'
+                            : 'bg-red-500/10 text-red-500'
                         }`}
                       >
-                        {t.type === 'ingreso' ? '+' : '-'}
-                        {fmt(Number(t.amount))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <ArrowIcon up={t.type === 'ingreso'} />
+                        {t.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span className="flex items-center gap-2">
+                        <PlatformIcon name={String(t.category).toLowerCase()} size={20} />
+                        <span className="capitalize">{t.category}</span>
+                      </span>
+                    </td>
+                    <td className={`px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
+                    <td className={`px-6 py-3 ${c.sub}`}>
+                      {new Date(t.created_at).toLocaleDateString('es-ES')}
+                    </td>
+                    <td
+                      className={`px-6 py-3 text-right font-semibold ${
+                        t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'
+                      }`}
+                    >
+                      {t.type === 'ingreso' ? '+' : '-'}
+                      {fmt(Number(t.amount))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
