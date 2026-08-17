@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
-function Logo({ className = 'h-11 w-11' }: { className?: string }) {
+export function Logo({ className = 'h-11 w-11' }: { className?: string }) {
   return (
     <svg viewBox="0 0 1024 1024" fill="none" className={className} aria-label="Flipscale">
       <path
@@ -103,7 +103,6 @@ function TestimonialCard({ t }: { t: (typeof testimonials)[0] }) {
   );
 }
 
-// Cada línea de testimonios es independiente: al pasar el cursor solo se ralentiza esa línea
 function MarqueeRow({ reverse = false }: { reverse?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const setSpeed = (rate: number) => {
@@ -150,7 +149,7 @@ export default function Home() {
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]">
             <Logo className="h-11 w-11 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)]" />
-            <span className="font-display text-lg font-bold tracking-[0.18em]">
+            <span className="font-serif text-lg font-medium tracking-[0.3em]">
               FLIP<span className="text-accent-500">SCALE</span>
             </span>
           </Link>
@@ -290,7 +289,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PRODUCTO (hoja clara que se superpone al oscuro) */}
+      {/* PRODUCTO */}
       <section
         id="producto"
         className="relative -mt-12 rounded-t-[2.5rem] bg-paper px-6 pb-40 pt-24 text-ink-950 shadow-[0_-24px_60px_-24px_rgba(11,18,32,0.5)] md:rounded-t-[3.5rem]"
@@ -370,7 +369,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BLOQUE OSCURO (hoja que se superpone al claro) */}
+      {/* BLOQUE OSCURO */}
       <div className="relative -mt-12 rounded-t-[2.5rem] bg-ink-950 shadow-[0_-24px_60px_-24px_rgba(11,18,32,0.5)] md:rounded-t-[3.5rem]">
         {/* CÓMO FUNCIONA */}
         <section id="como-funciona" className="px-6 pb-28 pt-32">
@@ -448,7 +447,9 @@ export default function Home() {
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-slate-500 md:flex-row">
             <div className="flex items-center gap-2">
               <Logo className="h-8 w-8" />
-              <span>© 2026 Flipscale</span>
+              <span className="font-serif text-sm font-medium tracking-[0.25em]">
+                FLIP<span className="text-accent-500">SCALE</span>
+              </span>
             </div>
             <div className="flex gap-6">
               <Link href="/pricing" className="transition hover:text-slate-300">Precios</Link>
