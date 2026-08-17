@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -16,7 +17,7 @@ import {
   Legend,
 } from 'recharts';
 
-function Logo({ className = 'h-10 w-10' }) {
+function Logo({ className = 'h-9 w-9' }) {
   return (
     <svg viewBox="0 0 1024 1024" fill="none" className={className} aria-label="Flipscale">
       <path
@@ -31,21 +32,43 @@ function Logo({ className = 'h-10 w-10' }) {
   );
 }
 
-const PLATFORM_COLORS = {
-  vinted: '#14B8A6',
-  wallapop: '#F59E0B',
-  etsy: '#f97316',
-  otra: '#64748b',
-  producto: '#3b82f6',
-  impuestos: '#8b5cf6',
-  embalaje: '#ec4899',
+const PLATFORMS = {
+  vinted: { color: '#09B1BA', letter: 'V', label: 'Vinted' },
+  wallapop: { color: '#10B981', letter: 'W', label: 'Wallapop' },
+  etsy: { color: '#F1641E', letter: 'E', label: 'Etsy' },
+  otra: { color: '#64748b', letter: 'O', label: 'Otra' },
+  producto: { color: '#3b82f6', letter: 'P', label: 'Producto' },
+  impuestos: { color: '#8b5cf6', letter: 'I', label: 'Impuestos' },
+  embalaje: { color: '#ec4899', letter: 'B', label: 'Embalaje' },
 };
 
 const fmt = (n) => n.toFixed(2) + ' €';
-const fmtShort = (n) => {
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k €';
-  return n.toFixed(0) + ' €';
-};
+const fmtShort = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k €' : n.toFixed(0) + ' €');
+
+function PlatformIcon({ name, size = 22 }) {
+  const p = PLATFORMS[name] || PLATFORMS.otra;
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full font-bold text-white"
+      style={{ width: size, height: size, backgroundColor: p.color, fontSize: size * 0.5 }}
+      title={p.label}
+    >
+      {p.letter}
+    </span>
+  );
+}
+
+function ArrowIcon({ up, className = 'h-3 w-3' }) {
+  return up ? (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M10 3l6 6h-4v8H8V9H4l6-6z" />
+    </svg>
+  ) : (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M10 17l-6-6h4V3h4v8h4l-6 6z" />
+    </svg>
+  );
+}
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
@@ -58,6 +81,8 @@ export default function DashboardPage() {
   const [formAmount, setFormAmount] = useState('');
   const [formNote, setFormNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [theme, setTheme] = useState('dark');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -65,6 +90,32 @@ export default function DashboardPage() {
   const CATEGORIES = {
     ingreso: ['vinted', 'wallapop', 'etsy', 'otra'],
     gasto: ['producto', 'impuestos', 'embalaje'],
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('fs-theme');
+    if (saved === 'light') setTheme('light');
+  }, []);
+
+  const dark = theme === 'dark';
+
+  const setThemeAndSave = (t) => {
+    setTheme(t);
+    localStorage.setItem('fs-theme', t);
+  };
+
+  const c = {
+    page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
+    header: dark ? 'border-white/10 bg-ink-950/80' : 'border-slate-200 bg-white/80',
+    sidebar: dark ? 'border-white/10 bg-ink-900/60' : 'border-slate-200 bg-white',
+    card: dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white',
+    sub: dark ? 'text-slate-400' : 'text-slate-600',
+    faint: dark ? 'text-slate-500' : 'text-slate-400',
+    input: dark ? 'border-white/10 bg-ink-800 text-white placeholder:text-slate-500' : 'border-slate-200 bg-white text-ink-950 placeholder:text-slate-400',
+    row: dark ? 'border-white/10' : 'border-slate-200',
+    rowSoft: dark ? 'border-white/5' : 'border-slate-100',
+    navIdle: dark ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-ink-950',
+    navActive: dark ? 'bg-brand-500/10 text-brand-400' : 'bg-brand-500/10 text-brand-700',
   };
 
   const loadTransactions = async () => {
@@ -91,10 +142,8 @@ export default function DashboardPage() {
 
     const channel = supabase
       .channel('cambios-transacciones')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
-        () => loadTransactions()
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () =>
+        loadTransactions()
       )
       .subscribe();
 
@@ -128,12 +177,10 @@ export default function DashboardPage() {
   const filteredTransactions = useMemo(() => {
     const now = new Date();
     const cutoff = new Date();
-    
     if (period === 'day') cutoff.setDate(now.getDate() - 1);
     else if (period === 'week') cutoff.setDate(now.getDate() - 7);
     else if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
-    else if (period === 'year') cutoff.setFullYear(now.getFullYear() - 1);
-    
+    else cutoff.setFullYear(now.getFullYear() - 1);
     return transactions.filter((t) => new Date(t.created_at) >= cutoff);
   }, [transactions, period]);
 
@@ -144,24 +191,16 @@ export default function DashboardPage() {
     filteredTransactions.forEach((t) => {
       const date = new Date(t.created_at);
       let key;
-      
-      if (period === 'day') {
-        key = date.toISOString().split('T')[0];
-      } else if (period === 'week') {
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split('T')[0];
-      } else if (period === 'month') {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      } else {
-        key = String(date.getFullYear());
-      }
+      if (period === 'day') key = date.toISOString().split('T')[0];
+      else if (period === 'week') {
+        const ws = new Date(date);
+        ws.setDate(date.getDate() - date.getDay());
+        key = ws.toISOString().split('T')[0];
+      } else if (period === 'month') key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      else key = String(date.getFullYear());
 
-      if (!grouped[key]) {
-        grouped[key] = { date: key };
-      }
-      
-      const cat = t.category.toLowerCase();
+      if (!grouped[key]) grouped[key] = { date: key };
+      const cat = String(t.category).toLowerCase();
       platforms.add(cat);
       grouped[key][cat] = (grouped[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
     });
@@ -175,23 +214,14 @@ export default function DashboardPage() {
   const platformBreakdown = useMemo(() => {
     const map = {};
     filteredTransactions.forEach((t) => {
-      const cat = t.category.toLowerCase();
+      const cat = String(t.category).toLowerCase();
       if (!map[cat]) map[cat] = { ingresos: 0, gastos: 0, count: 0 };
-      if (t.type === 'ingreso') {
-        map[cat].ingresos += Number(t.amount);
-      } else {
-        map[cat].gastos += Number(t.amount);
-      }
+      if (t.type === 'ingreso') map[cat].ingresos += Number(t.amount);
+      else map[cat].gastos += Number(t.amount);
       map[cat].count++;
     });
-    
     return Object.entries(map)
-      .map(([name, data]) => ({
-        name,
-        ...data,
-        beneficio: data.ingresos - data.gastos,
-        color: PLATFORM_COLORS[name] || '#64748b',
-      }))
+      .map(([name, d]) => ({ name, ...d, beneficio: d.ingresos - d.gastos, color: (PLATFORMS[name] || PLATFORMS.otra).color }))
       .sort((a, b) => b.beneficio - a.beneficio);
   }, [filteredTransactions]);
 
@@ -202,319 +232,464 @@ export default function DashboardPage() {
     const ingresos = sum(ing);
     const gastos = sum(gas);
     const beneficio = ingresos - gastos;
-    const margen = ingresos > 0 ? (beneficio / ingresos) * 100 : 0;
-    const ticketMedio = ing.length > 0 ? ingresos / ing.length : 0;
-    const transacciones = filteredTransactions.length;
-
-    return { ingresos, gastos, beneficio, margen, ticketMedio, transacciones };
+    return {
+      ingresos,
+      gastos,
+      beneficio,
+      margen: ingresos > 0 ? (beneficio / ingresos) * 100 : 0,
+      ticketMedio: ing.length > 0 ? ingresos / ing.length : 0,
+      transacciones: filteredTransactions.length,
+    };
   }, [filteredTransactions]);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-paper">
-        <div className="text-center">
-          <Logo className="mx-auto h-12 w-12 animate-pulse" />
-          <p className="mt-4 text-sm text-slate-500">Cargando dashboard...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-ink-950">
+        <Logo className="h-12 w-12 animate-pulse" />
       </div>
     );
   }
 
+  const axisColor = dark ? '#64748b' : '#94a3b8';
+  const gridColor = dark ? 'rgba(255,255,255,0.06)' : '#e2e8f0';
+
+  const navItems = [
+    {
+      label: 'Dashboard',
+      href: '/dashboard',
+      active: true,
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 7h7v7" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Borrado de metadatos',
+      href: '/tools',
+      active: false,
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Descripciones IA',
+      href: '/tools/description',
+      active: false,
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      ),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-paper">
+    <div className={`min-h-screen ${c.page}`}>
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r md:flex ${c.sidebar}`}>
+        <div className="flex h-16 items-center gap-3 px-6">
+          <Logo className="h-8 w-8" />
+          <span className="font-display text-base font-semibold tracking-wide">
+            FLIP<span className="text-accent-500">SCALE</span>
+          </span>
+        </div>
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                item.active ? c.navActive : c.navIdle
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className={`border-t px-6 py-4 ${c.row}`}>
+          <p className={`text-xs ${c.faint}`}>© 2026 Flipscale</p>
+        </div>
+      </aside>
+
       {/* HEADER */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <Logo />
-            <span className="font-display text-lg font-semibold tracking-wide">
-              FLIP<span className="text-accent-500">SCALE</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
+      <header className={`sticky top-0 z-30 border-b backdrop-blur-xl md:pl-60 ${c.header}`}>
+        <div className="flex h-16 items-center justify-between px-6">
+          {/* CUENTA + AJUSTES (arriba izquierda) */}
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
+              {(user?.email || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-sm font-semibold leading-tight">{user?.email}</p>
+              <p className={`text-xs ${c.faint}`}>Plan gratuito</p>
+            </div>
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="btn-primary"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`}
+              aria-label="Ajustes"
             >
-              {showForm ? 'Cerrar' : '＋ Añadir'}
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </button>
-            <button
-              onClick={handleSignOut}
-              className="text-sm text-slate-600 transition hover:text-slate-900"
-            >
-              Salir
-            </button>
+
+            {/* MENÚ DE AJUSTES */}
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
+                <div className={`absolute left-0 top-12 z-20 w-64 rounded-xl border p-2 shadow-2xl ${c.card}`}>
+                  <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider ${c.faint}`}>Ajustes</div>
+
+                  {/* MODO OSCURO / CLARO */}
+                  <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
+                    <span className="text-sm font-medium">Modo oscuro</span>
+                    <button
+                      onClick={() => setThemeAndSave(dark ? 'light' : 'dark')}
+                      className={`relative h-6 w-11 rounded-full transition ${dark ? 'bg-brand-500' : 'bg-slate-300'}`}
+                      aria-label="Cambiar tema"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                          dark ? 'left-[22px]' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <Link
+                    href="/pricing"
+                    onClick={() => setSettingsOpen(false)}
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
+                  >
+                    Plan y suscripción
+                  </Link>
+                  <Link
+                    href="/"
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
+                  >
+                    Ir a la web
+                  </Link>
+                  <div className={`my-1 h-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-red-500/10"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+              </>
+            )}
           </div>
+
+          <button onClick={() => setShowForm(!showForm)} className="btn-primary">
+            {showForm ? 'Cerrar' : '+ Añadir'}
+          </button>
+        </div>
+
+        {/* NAV MÓVIL */}
+        <div className={`flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden ${c.row}`}>
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ${
+                item.active ? c.navActive : c.navIdle
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {/* FORMULARIO */}
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-card"
-          >
-            <div className="grid gap-4 md:grid-cols-5">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Tipo</label>
-                <select
-                  value={formType}
-                  onChange={(e) => {
-                    setFormType(e.target.value);
-                    setFormCategory(CATEGORIES[e.target.value][0]);
-                  }}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="ingreso">💰 Ingreso</option>
-                  <option value="gasto">💸 Gasto</option>
-                </select>
+      {/* MAIN */}
+      <main className="px-6 py-8 md:pl-66">
+        <div className="md:pl-0">
+          {/* FORMULARIO */}
+          {showForm && (
+            <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
+              <div className="grid gap-4 md:grid-cols-5">
+                <div>
+                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Tipo</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => {
+                      setFormType(e.target.value);
+                      setFormCategory(CATEGORIES[e.target.value][0]);
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                  >
+                    <option value="ingreso">Ingreso</option>
+                    <option value="gasto">Gasto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Plataforma</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm capitalize ${c.input}`}
+                  >
+                    {CATEGORIES[formType].map((cat) => (
+                      <option key={cat} value={cat}>
+                        {(PLATFORMS[cat] || PLATFORMS.otra).label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Importe (€)</label>
+                  <input
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    placeholder="4,99"
+                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                  />
+                </div>
+                <div>
+                  <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Nota</label>
+                  <input
+                    value={formNote}
+                    onChange={(e) => setFormNote(e.target.value)}
+                    placeholder="opcional"
+                    className={`w-full rounded-lg border px-3 py-2 text-sm ${c.input}`}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button type="submit" disabled={saving} className="btn-primary w-full disabled:opacity-60">
+                    {saving ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Categoría</label>
-                <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm capitalize"
-                >
-                  {CATEGORIES[formType].map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Importe (€)</label>
-                <input
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="4,99"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Nota</label>
-                <input
-                  value={formNote}
-                  onChange={(e) => setFormNote(e.target.value)}
-                  placeholder="opcional"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary flex-1 disabled:opacity-60"
-                >
-                  {saving ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
 
-        {/* KPIs */}
-        <div className="mb-8 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Ingresos</p>
-            <p className="mt-1 font-display text-2xl font-bold text-brand-600">{fmt(kpis.ingresos)}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Gastos</p>
-            <p className="mt-1 font-display text-2xl font-bold text-red-600">{fmt(kpis.gastos)}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Beneficio</p>
-            <p className={`mt-1 font-display text-2xl font-bold ${kpis.beneficio >= 0 ? 'text-brand-600' : 'text-red-600'}`}>
-              {fmt(kpis.beneficio)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Margen</p>
-            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{kpis.margen.toFixed(1)}%</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Ticket medio</p>
-            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{fmt(kpis.ticketMedio)}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-xs font-medium text-slate-500">Transacciones</p>
-            <p className="mt-1 font-display text-2xl font-bold text-ink-950">{kpis.transacciones}</p>
-          </div>
-        </div>
-
-        {/* SELECTOR DE PERIODO */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold">Análisis</h2>
-          <div className="flex gap-2 rounded-lg bg-slate-100 p-1">
-            {['day', 'week', 'month', 'year'].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
-                  period === p ? 'bg-white text-ink-950 shadow-sm' : 'text-slate-600 hover:text-ink-950'
-                }`}
-              >
-                {p === 'day' ? 'Día' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
-              </button>
+          {/* KPIs */}
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {[
+              { label: 'Ingresos', value: fmt(kpis.ingresos), color: 'text-brand-500' },
+              { label: 'Gastos', value: fmt(kpis.gastos), color: 'text-red-500' },
+              { label: 'Beneficio', value: fmt(kpis.beneficio), color: kpis.beneficio >= 0 ? 'text-brand-500' : 'text-red-500' },
+              { label: 'Margen', value: kpis.margen.toFixed(1) + '%', color: '' },
+              { label: 'Ticket medio', value: fmt(kpis.ticketMedio), color: '' },
+              { label: 'Movimientos', value: String(kpis.transacciones), color: '' },
+            ].map((k) => (
+              <div key={k.label} className={`rounded-xl border p-5 ${c.card}`}>
+                <p className={`text-xs font-medium ${c.sub}`}>{k.label}</p>
+                <p className={`mt-1 font-display text-2xl font-bold ${k.color}`}>{k.value}</p>
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* GRÁFICO PRINCIPAL */}
-        <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-          <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                  formatter={(value) => fmt(value)}
-                />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                {chartData.platforms.map((platform) => (
-                  <Line
-                    key={platform}
-                    type="monotone"
-                    dataKey={platform}
-                    stroke={PLATFORM_COLORS[platform]}
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* DESGLOSE POR PLATAFORMA */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-            <h3 className="mb-4 font-display text-lg font-semibold">Beneficio por plataforma</h3>
-            <div className="space-y-4">
-              {platformBreakdown.map((platform) => (
-                <div key={platform.name}>
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: platform.color }}
-                      />
-                      <span className="font-medium capitalize">{platform.name}</span>
-                      <span className="text-xs text-slate-500">({platform.count} mov.)</span>
-                    </div>
-                    <span className={`font-semibold ${platform.beneficio >= 0 ? 'text-brand-600' : 'text-red-600'}`}>
-                      {fmt(platform.beneficio)}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <span className="w-16">Ingresos:</span>
-                      <div className="flex-1 rounded-full bg-slate-100">
-                        <div
-                          className="h-1.5 rounded-full bg-brand-500"
-                          style={{ width: `${(platform.ingresos / (platform.ingresos + platform.gastos)) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-20 text-right">{fmt(platform.ingresos)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <span className="w-16">Gastos:</span>
-                      <div className="flex-1 rounded-full bg-slate-100">
-                        <div
-                          className="h-1.5 rounded-full bg-red-500"
-                          style={{ width: `${(platform.gastos / (platform.ingresos + platform.gastos)) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-20 text-right">{fmt(platform.gastos)}</span>
-                    </div>
-                  </div>
-                </div>
+          {/* PERIODO */}
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="font-display text-xl font-bold">Análisis</h2>
+            <div className={`flex gap-1 rounded-lg p-1 ${dark ? 'bg-ink-800' : 'bg-slate-100'}`}>
+              {['day', 'week', 'month', 'year'].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                    period === p
+                      ? dark
+                        ? 'bg-ink-950 text-white shadow'
+                        : 'bg-white text-ink-950 shadow-sm'
+                      : c.sub
+                  }`}
+                >
+                  {p === 'day' ? 'Día' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
+                </button>
               ))}
-              {platformBreakdown.length === 0 && (
-                <p className="text-center text-sm text-slate-400">Sin datos en este periodo</p>
-              )}
             </div>
           </div>
 
-          {/* GRÁFICO DE BARRAS */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-            <h3 className="mb-4 font-display text-lg font-semibold">Comparativa de plataformas</h3>
+          {/* GRÁFICO PRINCIPAL */}
+          <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
+            <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={platformBreakdown} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" stroke="#64748b" style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
-                  <YAxis dataKey="name" type="category" stroke="#64748b" style={{ fontSize: '12px' }} />
+                <LineChart data={chartData.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} />
+                  <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: dark ? '#0f1a2e' : '#fff',
+                      border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
                       borderRadius: '8px',
                       fontSize: '12px',
+                      color: dark ? '#fff' : '#0B1220',
                     }}
-                    formatter={(value) => fmt(value)}
+                    formatter={(value) => fmt(Number(value))}
                   />
-                  <Bar dataKey="ingresos" fill="#14B8A6" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="gastos" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                </BarChart>
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  {chartData.platforms.map((platform) => (
+                    <Line
+                      key={platform}
+                      type="monotone"
+                      dataKey={platform}
+                      name={(PLATFORMS[platform] || PLATFORMS.otra).label}
+                      stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  ))}
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
-        </div>
 
-        {/* TABLA DE TRANSACCIONES */}
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white shadow-card">
-          <div className="border-b border-slate-200 px-6 py-4">
-            <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="px-6 py-3 font-medium">Tipo</th>
-                  <th className="px-6 py-3 font-medium">Plataforma</th>
-                  <th className="px-6 py-3 font-medium">Nota</th>
-                  <th className="px-6 py-3 font-medium">Fecha</th>
-                  <th className="px-6 py-3 text-right font-medium">Importe</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.slice(0, 20).map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-6 py-3">{t.type === 'ingreso' ? '💰' : '💸'}</td>
-                    <td className="px-6 py-3">
-                      <span className="flex items-center gap-2">
-                        <div
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: PLATFORM_COLORS[t.category] || '#64748b' }}
-                        />
-                        <span className="capitalize">{t.category}</span>
+          {/* DESGLOSES */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className={`rounded-xl border p-6 ${c.card}`}>
+              <h3 className="mb-4 font-display text-lg font-semibold">Rendimiento por plataforma</h3>
+              <div className="space-y-5">
+                {platformBreakdown.map((p) => (
+                  <div key={p.name}>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <PlatformIcon name={p.name} />
+                        <span className="font-medium capitalize">{p.name}</span>
+                        <span className={`text-xs ${c.faint}`}>{p.count} mov.</span>
+                      </div>
+                      <span className={`font-semibold ${p.beneficio >= 0 ? 'text-brand-500' : 'text-red-500'}`}>
+                        {fmt(p.beneficio)}
                       </span>
-                    </td>
-                    <td className="px-6 py-3 text-slate-600">{t.note || '—'}</td>
-                    <td className="px-6 py-3 text-slate-600">
-                      {new Date(t.created_at).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className={`px-6 py-3 text-right font-semibold ${t.type === 'ingreso' ? 'text-brand-600' : 'text-red-600'}`}>
-                      {t.type === 'ingreso' ? '+' : '-'}{fmt(Number(t.amount))}
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`w-14 ${c.sub}`}>Ingresos</span>
+                        <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                          <div
+                            className="h-1.5 rounded-full"
+                            style={{
+                              width: `${(p.ingresos / (p.ingresos + p.gastos || 1)) * 100}%`,
+                              backgroundColor: p.color,
+                            }}
+                          />
+                        </div>
+                        <span className={`w-20 text-right ${c.sub}`}>{fmt(p.ingresos)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`w-14 ${c.sub}`}>Gastos</span>
+                        <div className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                          <div
+                            className="h-1.5 rounded-full bg-red-500"
+                            style={{ width: `${(p.gastos / (p.ingresos + p.gastos || 1)) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`w-20 text-right ${c.sub}`}>{fmt(p.gastos)}</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+                {platformBreakdown.length === 0 && (
+                  <p className={`py-6 text-center text-sm ${c.faint}`}>Sin datos en este periodo</p>
+                )}
+              </div>
+            </div>
+
+            <div className={`rounded-xl border p-6 ${c.card}`}>
+              <h3 className="mb-4 font-display text-lg font-semibold">Ingresos vs gastos</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={platformBreakdown} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis type="number" stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      stroke={axisColor}
+                      style={{ fontSize: '12px' }}
+                      width={80}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: dark ? '#0f1a2e' : '#fff',
+                        border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: dark ? '#fff' : '#0B1220',
+                      }}
+                      formatter={(value) => fmt(Number(value))}
+                    />
+                    <Bar dataKey="ingresos" name="Ingresos" fill="#14B8A6" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA */}
+          <div className={`mt-8 rounded-xl border ${c.card}`}>
+            <div className={`border-b px-6 py-4 ${c.row}`}>
+              <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={`border-b text-left ${c.row} ${c.sub}`}>
+                    <th className="px-6 py-3 font-medium">Tipo</th>
+                    <th className="px-6 py-3 font-medium">Plataforma</th>
+                    <th className="px-6 py-3 font-medium">Nota</th>
+                    <th className="px-6 py-3 font-medium">Fecha</th>
+                    <th className="px-6 py-3 text-right font-medium">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.slice(0, 20).map((t) => (
+                    <tr key={t.id} className={`border-b last:border-0 ${c.rowSoft}`}>
+                      <td className="px-6 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            t.type === 'ingreso'
+                              ? 'bg-brand-500/10 text-brand-500'
+                              : 'bg-red-500/10 text-red-500'
+                          }`}
+                        >
+                          <ArrowIcon up={t.type === 'ingreso'} />
+                          {t.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="flex items-center gap-2">
+                          <PlatformIcon name={String(t.category).toLowerCase()} size={20} />
+                          <span className="capitalize">{t.category}</span>
+                        </span>
+                      </td>
+                      <td className={`px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
+                      <td className={`px-6 py-3 ${c.sub}`}>
+                        {new Date(t.created_at).toLocaleDateString('es-ES')}
+                      </td>
+                      <td
+                        className={`px-6 py-3 text-right font-semibold ${
+                          t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'
+                        }`}
+                      >
+                        {t.type === 'ingreso' ? '+' : '-'}
+                        {fmt(Number(t.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
