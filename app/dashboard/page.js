@@ -72,7 +72,6 @@ function ArrowIcon({ up, className = 'h-3 w-3' }) {
   );
 }
 
-// Tarjeta de métrica estilo Stripe con sparkline
 function MetricCard({ title, value, color, data, dataKey, dark, id, sub }) {
   const gid = `grad-${id}`;
   return (
@@ -277,15 +276,9 @@ export default function DashboardPage() {
     let accNet = 0;
     let accIng = 0;
     let accCount = 0;
-    const data = [];
     const series = [];
 
     buckets.forEach((b) => {
-      const row = { date: b.label };
-      platformList.forEach((p) => {
-        acc[p] = (acc[p] || 0) + (nets[b.key][p] || 0);
-        row[p] = acc[p];
-      });
       const ing = agg[b.key].ing;
       const gas = agg[b.key].gas;
       const count = agg[b.key].count;
@@ -301,10 +294,18 @@ export default function DashboardPage() {
         ticket: accCount > 0 ? accIng / accCount : 0,
         margen: accIng > 0 ? (accNet / accIng) * 100 : 0,
       });
-      data.push(row);
     });
 
-    return { data, series, platforms: platformList };
+    // Actividad por intervalo (sube y baja, estilo Stripe)
+    const flow = buckets.map((b) => {
+      const row = { date: b.label };
+      platformList.forEach((p) => {
+        row[p] = nets[b.key][p] || 0;
+      });
+      return row;
+    });
+
+    return { flow, series, platforms: platformList };
   }, [filteredTransactions, period]);
 
   const platformBreakdown = useMemo(() => {
@@ -598,7 +599,7 @@ export default function DashboardPage() {
           </form>
         )}
 
-        {/* RESUMEN (estilo Stripe) */}
+        {/* RESUMEN */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl font-bold">Tu resumen</h2>
@@ -629,7 +630,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TARJETAS DE MÉTRICAS CON SPARKLINES */}
+        {/* TARJETAS CON SPARKLINES */}
         <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             id="beneficio"
@@ -693,15 +694,23 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* GRÁFICO GRANDE */}
+        {/* GRÁFICO GRANDE: curvas suaves que suben y bajan */}
         <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-display text-lg font-semibold">Beneficio acumulado por plataforma</h3>
+            <h3 className="font-display text-lg font-semibold">Actividad por plataforma</h3>
             <span className={`text-xs ${c.faint}`}>{periodLabel}</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData.data}>
+              <AreaChart data={chartData.flow}>
+                <defs>
+                  {chartData.platforms.map((p) => (
+                    <linearGradient key={p} id={`big-${p}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={(PLATFORMS[p] || PLATFORMS.otra).color} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={(PLATFORMS[p] || PLATFORMS.otra).color} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} minTickGap={32} />
                 <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
@@ -716,19 +725,20 @@ export default function DashboardPage() {
                   formatter={(value) => fmt(Number(value))}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                {chartData.platforms.map((platform) => (
-                  <Line
-                    key={platform}
-                    type="stepAfter"
-                    dataKey={platform}
-                    name={(PLATFORMS[platform] || PLATFORMS.otra).label}
-                    stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
+                {chartData.platforms.map((p) => (
+                  <Area
+                    key={p}
+                    type="monotone"
+                    dataKey={p}
+                    name={(PLATFORMS[p] || PLATFORMS.otra).label}
+                    stroke={(PLATFORMS[p] || PLATFORMS.otra).color}
                     strokeWidth={2.5}
+                    fill={`url(#big-${p})`}
                     dot={false}
                     activeDot={{ r: 5 }}
                   />
                 ))}
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
