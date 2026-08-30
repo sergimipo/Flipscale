@@ -149,7 +149,7 @@ export default function Home() {
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]">
             <Logo className="h-11 w-11 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)]" />
-            <span className="font-serif text-lg font-medium tracking-[0.3em]">
+            <span className="font-display text-lg font-semibold tracking-wide">
               FLIP<span className="text-accent-500">SCALE</span>
             </span>
           </Link>
@@ -468,7 +468,7 @@ export default function Home() {
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-slate-500 md:flex-row">
             <div className="flex items-center gap-2">
               <Logo className="h-8 w-8" />
-              <span className="font-serif text-sm font-medium tracking-[0.25em]">
+              <span className="font-display text-sm font-semibold tracking-wide">
                 FLIP<span className="text-accent-500">SCALE</span>
               </span>
             </div>
