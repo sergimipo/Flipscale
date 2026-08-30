@@ -186,7 +186,7 @@ export default function DashboardPage() {
     return transactions.filter((t) => new Date(t.created_at) >= cutoff);
   }, [transactions, period]);
 
-  // GRÁFICO: buckets según periodo (horas / días / meses) con huecos rellenos
+  // GRÁFICO: beneficio ACUMULADO por plataforma (siempre tiene forma)
   const chartData = useMemo(() => {
     const pad = (n) => String(n).padStart(2, '0');
     const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -220,9 +220,9 @@ export default function DashboardPage() {
       }
     }
 
-    const grouped = {};
+    const nets = {};
     buckets.forEach((b) => {
-      grouped[b.key] = { date: b.label };
+      nets[b.key] = {};
     });
     const platforms = new Set();
 
@@ -234,13 +234,24 @@ export default function DashboardPage() {
 
     filteredTransactions.forEach((t) => {
       const key = keyFor(new Date(t.created_at));
-      if (!grouped[key]) return;
+      if (!nets[key]) return;
       const cat = String(t.category).toLowerCase();
       platforms.add(cat);
-      grouped[key][cat] = (grouped[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
+      nets[key][cat] = (nets[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
     });
 
-    return { data: Object.values(grouped), platforms: Array.from(platforms) };
+    const platformList = Array.from(platforms);
+    const acc = {};
+    const data = buckets.map((b) => {
+      const row = { date: b.label };
+      platformList.forEach((p) => {
+        acc[p] = (acc[p] || 0) + (nets[b.key][p] || 0);
+        row[p] = acc[p];
+      });
+      return row;
+    });
+
+    return { data, platforms: platformList };
   }, [filteredTransactions, period]);
 
   const platformBreakdown = useMemo(() => {
@@ -588,12 +599,17 @@ export default function DashboardPage() {
 
         {/* GRÁFICO PRINCIPAL */}
         <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
-          <h3 className="mb-4 font-display text-lg font-semibold">Evolución por plataforma</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold">Beneficio acumulado por plataforma</h3>
+            <span className={`text-xs ${c.faint}`}>
+              {period === 'day' ? 'Últimas 24 horas' : period === 'week' ? 'Últimos 7 días' : period === 'month' ? 'Últimos 30 días' : 'Últimos 12 meses'}
+            </span>
+          </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData.data}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} interval="preserveStartEnd" />
+                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} minTickGap={32} />
                 <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
                 <Tooltip
                   contentStyle={{
@@ -609,11 +625,11 @@ export default function DashboardPage() {
                 {chartData.platforms.map((platform) => (
                   <Line
                     key={platform}
-                    type="monotone"
+                    type="stepAfter"
                     dataKey={platform}
                     name={(PLATFORMS[platform] || PLATFORMS.otra).label}
                     stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     dot={false}
                     activeDot={{ r: 5 }}
                   />
