@@ -1,379 +1,369 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import exifr from 'exifr';
 
-export default function Tools() {
-  const [user, setUser] = useState(null);
-  const [subscription, setSubscription] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [globalError, setGlobalError] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [expandedFileId, setExpandedFileId] = useState(null);
-  const [usageStatus, setUsageStatus] = useState({ allowed: true, remaining: 5, count: 0 });
+function Logo({ className = 'h-9 w-9' }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="none" className={className} aria-label="Flipscale">
+      <path
+        d="M 196.59 712.97 C189.30,715.48 186.78,715.52 184.65,713.17 C183.15,711.50 183.00,704.89 183.00,638.74 C183.00,592.74 183.39,563.28 184.07,558.32 C185.36,548.88 189.99,534.51 194.17,527.00 C207.43,503.13 228.27,486.12 254.50,477.77 L 261.50 475.54 L 366.92 475.24 C448.78,475.01 472.52,475.22 473.10,476.16 C474.02,477.66 473.47,478.75 454.14,514.00 C437.10,545.05 433.93,549.27 424.20,553.83 L 418.50 556.50 L 342.31 557.00 L 266.13 557.50 L 262.96 560.50 C261.22,562.15 259.29,564.62 258.67,566.00 C257.90,567.69 257.37,584.01 257.02,616.56 L 256.50 664.61 L 252.72 672.26 C248.11,681.58 241.09,689.45 232.02,695.49 C224.29,700.62 205.45,709.92 196.59,712.97 ZM 188.49 496.25 C186.85,498.86 185.16,501.00 184.75,501.00 C183.61,501.00 183.86,422.63 185.03,412.97 C187.33,394.01 194.26,379.66 207.47,366.50 C217.71,356.30 224.17,352.13 236.74,347.63 L 245.50 344.50 L 399.25 344.23 C527.92,344.01 553.00,344.18 553.00,345.32 C553.00,346.70 544.23,363.22 526.10,396.00 C518.13,410.41 514.67,415.65 510.43,419.71 C508.95,421.13 507.93,422.31 506.74,423.29 C500.98,428.03 491.32,428.03 405.73,428.02 C399.00,428.02 391.78,428.01 384.07,428.02 C276.91,428.03 273.25,428.09 265.50,430.03 C247.63,434.49 228.73,446.88 212.87,464.52 C205.31,472.93 193.53,488.27 188.49,496.25 ZM 390.03 710.95 C380.25,712.16 352.16,712.15 343.81,710.92 C329.90,708.88 317.61,704.11 310.74,698.08 C308.90,696.46 306.07,692.74 304.45,689.82 L 301.50 684.50 L 300.91 604.71 L 303.71 606.57 C340.30,630.90 378.65,638.37 428.50,630.88 C466.27,625.20 504.22,611.80 541.65,590.93 C580.14,569.46 613.48,544.60 647.16,512.25 C653.60,506.06 659.16,501.00 659.51,501.00 C660.23,501.00 643.46,525.77 635.13,537.00 C603.91,579.10 573.69,611.27 537.50,640.92 C488.77,680.85 437.92,705.00 390.03,710.95 ZM 595.02 519.99 C593.92,520.58 584.25,521.00 571.74,521.00 C569.38,521.00 567.24,521.02 565.29,521.04 C555.85,521.12 550.98,521.17 548.49,518.76 C545.84,516.19 545.88,510.85 545.97,499.82 C545.98,497.68 546.00,495.33 546.00,492.74 C546.00,469.46 546.03,469.09 548.22,467.56 C550.07,466.26 554.16,466.00 572.57,466.00 C592.39,466.00 594.85,466.18 596.21,467.75 C597.42,469.14 597.86,473.79 598.35,490.50 C599.01,512.68 598.39,518.19 595.02,519.99 Z"
+        fill="#09868b"
+      />
+      <path
+        d="M 533.41 684.05 C516.46,687.97 510.70,688.82 512.55,687.14 C513.07,686.66 517.10,683.88 521.50,680.95 C573.28,646.48 632.69,585.39 690.18,507.50 C712.00,477.95 736.93,439.88 758.95,402.50 C769.31,384.93 774.68,375.43 787.53,352.00 C799.87,329.51 801.06,327.15 800.29,326.69 C799.86,326.42 796.35,325.90 792.50,325.53 C788.65,325.16 780.33,324.25 774.00,323.50 C767.67,322.75 759.01,321.85 754.75,321.49 C750.49,321.12 747.00,320.44 747.00,319.96 C747.00,319.15 759.95,311.32 828.00,270.99 C843.12,262.02 865.96,248.46 878.75,240.85 C891.54,233.23 902.45,227.00 903.00,227.00 C903.66,227.00 903.99,258.83 903.96,320.75 L 903.92 414.50 L 901.07 411.18 C899.51,409.35 896.49,405.30 894.37,402.18 C882.18,384.25 872.63,371.00 871.90,371.00 C871.45,371.00 865.44,382.14 858.56,395.75 C825.16,461.80 796.13,506.29 757.94,550.00 C724.08,588.74 687.82,618.13 643.87,642.48 C609.79,661.35 575.07,674.42 533.41,684.05 ZM 675.37 431.93 C672.87,433.89 671.50,434.00 648.82,434.00 L 624.91 434.00 L 622.45 431.55 L 620.00 429.09 L 620.00 376.90 L 622.70 374.40 L 625.40 371.90 L 649.79 372.20 C674.05,372.50 674.19,372.51 676.09,374.86 C677.86,377.05 678.00,379.12 678.00,403.54 L 678.00 429.85 Z"
+        fill="#f9a712"
+      />
+    </svg>
+  );
+}
 
-  const fileInputRef = useRef(null);
-  const router = useRouter();
-  const supabase = createClient();
+const fmtSize = (bytes) => {
+  if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / 1024).toFixed(0) + ' KB';
+};
+
+const outName = (f) =>
+  f.type === 'image/png'
+    ? f.name.replace(/\.png$/i, '') + '-clean.png'
+    : f.name.replace(/\.[^.]+$/, '') + '-clean.jpg';
+
+const stripImage = (file) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob);
+          else reject(new Error('sin blob'));
+        },
+        file.type === 'image/png' ? 'image/png' : 'image/jpeg',
+        0.92
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('error de imagen'));
+    };
+    img.src = url;
+  });
+
+export default function ToolsPage() {
+  const [theme, setTheme] = useState('dark');
+  const [items, setItems] = useState([]);
+  const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
-      setUser(user);
-
-      const { data: sub } = await supabase.from('subscriptions').select('*').eq('user_id', user.id).single();
-      setSubscription(sub);
-
-      const hasSub = sub && sub.status === 'active';
-      const res = await fetch(`/api/usage?userId=${user.id}&hasSubscription=${hasSub}`);
-      const usageData = await res.json();
-      setUsageStatus(usageData);
-    };
-    init();
+    if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
 
-  const handleFileSelect = async (e) => {
-    const newFiles = Array.from(e.target.files);
-    await processFiles(newFiles);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const dark = theme === 'dark';
+
+  const c = {
+    page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
+    header: dark ? 'border-white/10 bg-ink-950/80' : 'border-slate-200 bg-white/80',
+    card: dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white',
+    sub: dark ? 'text-slate-400' : 'text-slate-600',
+    faint: dark ? 'text-slate-500' : 'text-slate-400',
+    row: dark ? 'border-white/10' : 'border-slate-200',
+    drop: dark
+      ? dragging
+        ? 'border-brand-500 bg-brand-500/10'
+        : 'border-white/15 bg-ink-900/60 hover:border-brand-500/50'
+      : dragging
+        ? 'border-brand-500 bg-brand-500/5'
+        : 'border-slate-300 bg-white hover:border-brand-500/60',
   };
 
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) => file.type.startsWith('image/'));
-    if (droppedFiles.length > 0) await processFiles(droppedFiles);
-  };
-
-  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
-  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
-
-  // ✅ COMPRESIÓN INTELIGENTE - CALIDAD MÁXIMA
-  const compressImage = async (file) => {
-    const maxSize = 3.8 * 1024 * 1024; // 3.8MB - margen de seguridad
-    
-    // Si la imagen ya es pequeña, NO la tocamos - CALIDAD 100%
-    if (file.size <= maxSize) {
-      return { file, compressed: false, reason: 'none' };
-    }
-
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          // Estrategia 1: Solo redimensionar si es MUY grande (> 3000px)
-          // Mantener calidad 100%
-          const maxDimension = 3000;
-          let resized = false;
-          
-          if (width > maxDimension || height > maxDimension) {
-            if (width > height) {
-              height = (height * maxDimension) / width;
-              width = maxDimension;
-            } else {
-              width = (width * maxDimension) / height;
-              height = maxDimension;
-            }
-            resized = true;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Estrategia 2: Si redimensionamos, usar calidad 98% (casi imperceptible)
-          // Si no redimensionamos, calidad 100%
-          const quality = resized ? 0.98 : 1.0;
-
-          canvas.toBlob(
-            (blob) => {
-              // Si aún es muy grande, intentar con 95% de calidad
-              if (blob.size > maxSize) {
-                canvas.toBlob(
-                  (blob2) => {
-                    const compressedFile = new File([blob2], file.name, { type: 'image/jpeg' });
-                    resolve({ 
-                      file: compressedFile, 
-                      compressed: true,
-                      reason: resized ? 'resized+compressed' : 'compressed',
-                      quality: 95
-                    });
-                  },
-                  'image/jpeg',
-                  0.95
-                );
-              } else {
-                const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
-                resolve({ 
-                  file: compressedFile, 
-                  compressed: resized || quality < 1.0,
-                  reason: resized ? 'resized' : 'none',
-                  quality: Math.round(quality * 100)
-                });
-              }
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const processFiles = async (newFiles) => {
-    setGlobalError('');
-    const processedFiles = await Promise.all(
-      newFiles.map(async (file) => {
-        let metadata = {};
-        try { metadata = (await exifr.parse(file)) || {}; } 
-        catch (err) { metadata = { error: 'No se pudieron leer' }; }
-        return { 
-          id: Math.random().toString(36).substr(2, 9), 
-          file, 
-          originalSize: file.size,
-          preview: URL.createObjectURL(file), 
-          metadata, 
-          status: 'pending', 
-          cleanBlob: null, 
-          cleanUrl: null 
+  const addFiles = async (fileList) => {
+    const arr = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    const newItems = await Promise.all(
+      arr.map(async (file) => {
+        let metaCount = 0;
+        try {
+          const meta = await exifr.parse(file);
+          metaCount = meta ? Object.keys(meta).length : 0;
+        } catch (e) {
+          metaCount = 0;
+        }
+        return {
+          id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          file,
+          metaCount,
+          status: 'pending',
+          preview: URL.createObjectURL(file),
+          cleanUrl: null,
         };
       })
     );
-    setFiles((prev) => [...prev, ...processedFiles]);
+    setItems((prev) => [...prev, ...newItems]);
   };
 
-  const processAllFiles = async () => {
-    const pendingFiles = files.filter((f) => f.status === 'pending');
-    if (pendingFiles.length === 0) return;
+  const cleanOne = async (item) => {
+    setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: 'cleaning' } : it)));
+    try {
+      const blob = await stripImage(item.file);
+      const cleanUrl = URL.createObjectURL(blob);
+      setItems((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, status: 'clean', cleanUrl } : it))
+      );
+    } catch (e) {
+      setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: 'error' } : it)));
+    }
+  };
 
+  const cleanAll = async () => {
     setProcessing(true);
-    setGlobalError('');
-    setProgress(0);
-
-    const hasSub = subscription && subscription.status === 'active';
-    let localRemaining = hasSub ? 999 : usageStatus.remaining;
-    let processedCount = 0;
-
-    for (const fileObj of pendingFiles) {
-      if (localRemaining <= 0 && !hasSub) {
-        setGlobalError(`Has alcanzado el límite de 5 imágenes este mes. Actualiza tu plan.`);
-        setFiles((prev) => prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'error' } : f)));
-        break;
-      }
-
-      setFiles((prev) => prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'processing' } : f)));
-
-      try {
-        // Intentar comprimir solo si es necesario
-        const { file: fileToSend, compressed, reason, quality } = await compressImage(fileObj.file);
-        
-        const formData = new FormData();
-        formData.append('file', fileToSend);
-
-        const res = await fetch('/api/remove-metadata', { method: 'POST', body: formData });
-
-        if (!res.ok) {
-          let errorMessage = 'Error al procesar la imagen';
-          try {
-            const errorData = await res.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            const textError = await res.text();
-            errorMessage = textError.includes('Entity Too Large') 
-              ? 'La imagen es demasiado grande incluso después de optimizar. Máx. 4MB.' 
-              : textError || errorMessage;
-          }
-          throw new Error(errorMessage);
-        }
-
-        const cleanBlob = await res.blob();
-        const cleanUrl = URL.createObjectURL(cleanBlob);
-
-        const postRes = await fetch('/api/usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id }),
-        });
-
-        let statusMessage = '✅ Procesada';
-        if (compressed) {
-          if (reason === 'resized') {
-            statusMessage = '✅ Procesada (redimensionada)';
-          } else if (reason === 'resized+compressed') {
-            statusMessage = `✅ Procesada (optimizada ${quality}%)`;
-          }
-        }
-
-        setFiles((prev) => prev.map((f) => f.id === fileObj.id ? { 
-          ...f, 
-          status: 'done', 
-          cleanBlob, 
-          cleanUrl,
-          wasCompressed: compressed,
-          compressionReason: reason,
-          compressionQuality: quality
-        } : f));
-
-        if (!hasSub) {
-          localRemaining -= 1;
-          setUsageStatus({ allowed: localRemaining > 0, remaining: localRemaining, count: usageStatus.count + 1 });
-        }
-      } catch (error) {
-        console.error('Error procesando imagen:', error);
-        setFiles((prev) => prev.map((f) => (f.id === fileObj.id ? { ...f, status: 'error', errorMsg: error.message } : f)));
-      }
-
-      processedCount += 1;
-      setProgress(Math.round((processedCount / pendingFiles.length) * 100));
+    const pending = items.filter((i) => i.status === 'pending' || i.status === 'error');
+    for (const it of pending) {
+      await cleanOne(it);
     }
     setProcessing(false);
   };
 
-  const downloadImage = (fileObj) => {
-    if (!fileObj.cleanBlob) return;
-    const link = document.createElement('a');
-    link.href = fileObj.cleanUrl;
-    link.download = `Flipscale_${fileObj.file.name.replace(/\.[^/.]+$/, '')}_clean.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const removeItem = (id) => setItems((prev) => prev.filter((it) => it.id !== id));
 
-  const downloadAll = () => {
-    files.filter((f) => f.status === 'done').forEach((f, index) => {
-      setTimeout(() => downloadImage(f), index * 500);
-    });
-  };
-
-  const clearAll = () => { setFiles([]); setGlobalError(''); setProgress(0); setExpandedFileId(null); };
-
-  if (!user) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
-
-  const hasSubscription = subscription && subscription.status === 'active';
-  const pendingCount = files.filter((f) => f.status === 'pending').length;
-  const doneCount = files.filter((f) => f.status === 'done').length;
+  const totalMeta = items.reduce((s, it) => s + it.metaCount, 0);
+  const cleanCount = items.filter((it) => it.status === 'clean').length;
+  const pendingCount = items.filter((it) => it.status === 'pending' || it.status === 'error').length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2 text-center">🔒 Borrado de Metadatos por Lotes</h1>
-        <p className="text-center text-gray-600 mb-8">
-          {hasSubscription ? `✅ Plan ${subscription.plan.toUpperCase()} activo: Procesamiento por lotes ilimitado.` : `Usuario gratuito: ${usageStatus.remaining} de 5 imágenes disponibles este mes.`}
-        </p>
-
-        <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
-          className={`bg-white p-8 rounded-lg shadow mb-6 border-2 border-dashed transition-all cursor-pointer ${isDragging ? 'border-purple-600 bg-purple-50' : 'border-gray-300'}`}
-          onClick={() => !processing && fileInputRef.current?.click()}>
-          <div className="text-center">
-            <div className="text-5xl mb-4">📁</div>
-            <h2 className="text-xl font-bold mb-2">Arrastra tus imágenes aquí</h2>
-            <p className="text-gray-600 mb-4">o haz clic para seleccionar múltiples archivos</p>
-            <p className="text-sm text-gray-500">Soporta: JPEG, PNG, WebP (Máx. 4MB • Calidad preservada)</p>
+    <div className={`min-h-screen ${c.page}`}>
+      {/* HEADER */}
+      <header className={`sticky top-0 z-30 border-b backdrop-blur-xl ${c.header}`}>
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="flex items-center gap-3 transition hover:opacity-80">
+              <Logo className="h-8 w-8" />
+              <span className="hidden font-display text-base font-semibold tracking-wide sm:block">
+                FLIP<span className="text-accent-500">SCALE</span>
+              </span>
+            </Link>
+            <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
+            <span className={`text-sm font-medium ${c.sub}`}>Borrado de metadatos</span>
           </div>
-          <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/jpeg,image/jpg,image/png,image/webp" multiple disabled={processing} className="hidden" />
+          <Link
+            href="/dashboard"
+            className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
+          >
+            ← Volver al dashboard
+          </Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        {/* TÍTULO */}
+        <div className="mb-8">
+          <h1 className="font-display text-3xl font-bold">Fotos sin rastros</h1>
+          <p className={`mt-2 max-w-2xl ${c.sub}`}>
+            Elimina la información oculta de tus imágenes (GPS, dispositivo, fechas) antes de
+            subirlas a Vinted, Wallapop o Etsy. Todo ocurre en tu navegador: tus fotos nunca se
+            suben a ningún servidor.
+          </p>
         </div>
 
-        {processing && (
-          <div className="bg-white p-4 rounded-lg shadow mb-6">
-            <div className="flex justify-between mb-2">
-              <span className="font-bold text-purple-700">Procesando lote...</span>
-              <span className="font-bold text-purple-700">{progress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div className="bg-purple-600 h-3 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-            </div>
-          </div>
-        )}
-
-        {files.length > 0 && (
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold">Archivos ({files.length}) <span className="text-sm font-normal text-gray-500">({doneCount} completados)</span></h2>
-              <div className="flex gap-4">
-                {doneCount > 0 && <button onClick={downloadAll} className="text-green-600 text-sm font-bold hover:underline">️ Descargar todo</button>}
-                <button onClick={clearAll} disabled={processing} className="text-red-500 text-sm hover:underline disabled:opacity-50">Limpiar todo</button>
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* COLUMNA PRINCIPAL */}
+          <div className="lg:col-span-2">
+            {/* DROPZONE */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                addFiles(e.dataTransfer.files);
+              }}
+              onClick={() => inputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-all duration-300 ${c.drop}`}
+            >
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/10">
+                <svg className="h-7 w-7 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  />
+                </svg>
               </div>
+              <p className="font-display text-lg font-semibold">Arrastra tus fotos aquí</p>
+              <p className={`mt-1 text-sm ${c.faint}`}>o haz clic para seleccionarlas · JPG, PNG, WEBP</p>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
             </div>
 
-            <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
-              {files.map((fileObj) => (
-                <div key={fileObj.id} className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col md:flex-row gap-4">
-                  <img src={fileObj.preview} alt="preview" className="w-full md:w-24 h-24 object-cover rounded border flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold truncate">{fileObj.file.name}</p>
-                    <p className="text-xs text-gray-500 mb-2">
-                      {(fileObj.originalSize / 1024).toFixed(2)} KB
-                      {fileObj.wasCompressed && fileObj.compressionReason === 'resized' && (
-                        <span className="ml-2 text-blue-600 font-medium">• Redimensionada (calidad 100%)</span>
-                      )}
-                      {fileObj.wasCompressed && fileObj.compressionReason === 'compressed' && (
-                        <span className="ml-2 text-green-600 font-medium">• Optimizada (calidad {fileObj.compressionQuality}%)</span>
-                      )}
-                      {fileObj.wasCompressed && fileObj.compressionReason === 'resized+compressed' && (
-                        <span className="ml-2 text-orange-600 font-medium">• Optimizada (calidad {fileObj.compressionQuality}%)</span>
+            {/* BARRA DE ACCIÓN */}
+            {items.length > 0 && (
+              <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 ${c.card}`}>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className={c.sub}>
+                    <span className="font-semibold">{items.length}</span> fotos
+                  </span>
+                  <span className={c.sub}>
+                    <span className="font-semibold text-accent-500">{totalMeta}</span> datos detectados
+                  </span>
+                  <span className={c.sub}>
+                    <span className="font-semibold text-brand-500">{cleanCount}</span> limpias
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setItems([])}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                      dark ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Vaciar lista
+                  </button>
+                  <button
+                    onClick={cleanAll}
+                    disabled={processing || pendingCount === 0}
+                    className="btn-primary disabled:opacity-50"
+                  >
+                    {processing ? 'Limpiando…' : `Limpiar todo (${pendingCount})`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* LISTA DE ARCHIVOS */}
+            <div className="mt-4 space-y-3">
+              {items.map((it) => (
+                <div key={it.id} className={`flex items-center gap-4 rounded-xl border p-3 ${c.card}`}>
+                  <img
+                    src={it.preview}
+                    alt={it.file.name}
+                    className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{it.file.name}</p>
+                    <p className={`mt-0.5 text-xs ${c.faint}`}>
+                      {fmtSize(it.file.size)} ·{' '}
+                      {it.metaCount > 0 ? (
+                        <span className="text-accent-500">{it.metaCount} datos ocultos</span>
+                      ) : (
+                        <span>sin datos ocultos</span>
                       )}
                     </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className={`text-sm font-bold flex items-center gap-2 ${fileObj.status === 'done' ? 'text-green-600' : fileObj.status === 'processing' ? 'text-blue-600' : fileObj.status === 'error' ? 'text-red-600' : 'text-gray-500'}`}>
-                        {fileObj.status === 'done' && fileObj.wasCompressed ? '✅ Procesada (optimizada)' : fileObj.status === 'done' ? '✅ Procesada (calidad original)' : ''}
-                        {fileObj.status === 'processing' && '⏳ Procesando...'}
-                        {fileObj.status === 'error' && `❌ Error${fileObj.errorMsg ? ': ' + fileObj.errorMsg : ''}`}
-                        {fileObj.status === 'pending' && '⏸️ Pendiente'}
-                      </span>
-                      {fileObj.status === 'done' && (
-                        <div className="flex gap-2">
-                          <button onClick={() => setExpandedFileId(expandedFileId === fileObj.id ? null : fileObj.id)} className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded text-sm hover:bg-blue-100 font-medium transition flex items-center gap-1">
-                            {expandedFileId === fileObj.id ? 'Ocultar detalles' : '️ Ver qué se eliminó'}
-                          </button>
-                          <button onClick={() => downloadImage(fileObj)} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition flex items-center gap-1">⬇️ Descargar</button>
-                        </div>
-                      )}
-                    </div>
-                    {expandedFileId === fileObj.id && (
-                      <div className="mt-3 bg-gray-50 p-3 rounded border border-gray-200 text-xs">
-                        <p className="font-bold text-gray-700 mb-2 flex items-center gap-2"><span className="text-red-500">🗑️</span> Metadatos originales detectados y eliminados:</p>
-                        {Object.keys(fileObj.metadata).length > 0 && !fileObj.metadata.error ? (
-                          <pre className="whitespace-pre-wrap text-gray-600 max-h-40 overflow-y-auto bg-white p-2 rounded border font-mono">{JSON.stringify(fileObj.metadata, null, 2)}</pre>
-                        ) : (
-                          <p className="text-gray-500 italic bg-white p-2 rounded border">{fileObj.metadata.error || 'No se detectaron metadatos significativos.'}</p>
-                        )}
-                        <p className="mt-2 text-green-700 font-semibold flex items-center gap-1"><span>✅</span> Toda esta información ha sido eliminada permanentemente.</p>
-                        {fileObj.wasCompressed && (
-                          <p className="mt-2 text-blue-700 text-xs">ℹ️ La imagen fue optimizada para cumplir con el límite de 4MB de Vercel.</p>
-                        )}
-                      </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {it.status === 'clean' ? (
+                      <>
+                        <span className="hidden items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-500 sm:inline-flex">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Limpia
+                        </span>
+                        <a href={it.cleanUrl} download={outName(it.file)} className="btn-primary !px-4 !py-2 text-xs">
+                          Descargar
+                        </a>
+                      </>
+                    ) : it.status === 'cleaning' ? (
+                      <span className={`text-xs font-medium ${c.faint}`}>Limpiando…</span>
+                    ) : it.status === 'error' ? (
+                      <button
+                        onClick={() => cleanOne(it)}
+                        className="rounded-lg bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500/20"
+                      >
+                        Reintentar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => cleanOne(it)}
+                        className="rounded-lg bg-brand-500/10 px-4 py-2 text-xs font-semibold text-brand-500 transition hover:bg-brand-500/20"
+                      >
+                        Limpiar
+                      </button>
                     )}
+                    <button
+                      onClick={() => removeItem(it.id)}
+                      className={`rounded-lg p-2 transition ${
+                        dark ? 'text-slate-500 hover:bg-white/5 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-ink-950'
+                      }`}
+                      aria-label="Quitar"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        )}
 
-        {globalError && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6"><p className="text-red-800 font-bold">️ {globalError}</p></div>}
+          {/* PANEL INFORMATIVO */}
+          <div className="space-y-4">
+            <div className={`rounded-xl border p-6 ${c.card}`}>
+              <h3 className="font-display text-lg font-semibold">Qué se elimina</h3>
+              <div className="mt-4 space-y-3">
+                {[
+                  ['Ubicación GPS', 'Coordenadas de dónde se hizo la foto'],
+                  ['Dispositivo', 'Modelo de cámara o móvil y ajustes'],
+                  ['Fechas y software', 'Cuándo y con qué se editó la imagen'],
+                ].map(([t, d]) => (
+                  <div key={t} className="flex gap-3">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/10">
+                      <svg className="h-3.5 w-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{t}</p>
+                      <p className={`text-xs ${c.faint}`}>{d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {pendingCount > 0 && (
-          <button onClick={processAllFiles} disabled={processing || (!usageStatus.allowed && !hasSubscription)}
-            className={`w-full px-6 py-4 rounded-lg font-bold text-lg mb-4 transition flex items-center justify-center gap-2 ${processing || (!usageStatus.allowed && !hasSubscription) ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg hover:shadow-xl'}`}>
-            {processing ? '⏳ Procesando lote...' : !usageStatus.allowed && !hasSubscription ? '🔒 Límite mensual alcanzado' : `🗑️ Procesar ${pendingCount} imagen(es) y Eliminar Metadatos`}
-          </button>
-        )}
+            <div className={`rounded-xl border p-6 ${c.card}`}>
+              <h3 className="font-display text-lg font-semibold">Por qué importa</h3>
+              <p className={`mt-3 text-sm leading-relaxed ${c.sub}`}>
+                Al publicar fotos con metadatos, cualquier persona puede saber dónde vives o
+                dónde guardas el stock. Los compradores de segunda mano no necesitan esa
+                información: publícala limpia y vende con tranquilidad.
+              </p>
+            </div>
 
-        <div className="text-center"><a href="/dashboard" className="text-purple-600 hover:underline font-medium">← Volver al Dashboard</a></div>
-      </div>
+            <div className={`rounded-xl border p-6 ${c.card}`}>
+              <h3 className="font-display text-lg font-semibold">100% privado</h3>
+              <p className={`mt-3 text-sm leading-relaxed ${c.sub}`}>
+                El procesamiento ocurre en tu navegador con tecnología local. Ninguna imagen
+                sale de tu dispositivo.
+              </p>
+              <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-brand-500">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Sin subidas a servidores
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
