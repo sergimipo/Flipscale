@@ -5,12 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -98,6 +96,8 @@ function MetricCard({ title, value, color, data, dataKey, dark, id, sub }) {
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
+  const [isPro, setIsPro] = useState(false);
+  const [justUpgraded, setJustUpgraded] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('month');
@@ -121,16 +121,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem('fs-theme');
-    if (saved === 'light') setTheme('light');
+    if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
 
   const dark = theme === 'dark';
-
-  const setThemeAndSave = (t) => {
-    setTheme(t);
-    localStorage.setItem('fs-theme', t);
-  };
 
   const c = {
     page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
@@ -164,24 +158,6 @@ export default function DashboardPage() {
       setUser(user);
       setLoading(false);
     };
-      // CONFIRMAR PAGO ÚNICO AL VOLVER DE STRIPE
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const success = params.get('success');
-      const sessionId = params.get('session_id');
-      
-      if (success === 'true' && sessionId && user?.id) {
-        fetch('/api/confirm-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
-        }).then(() => {
-          window.history.replaceState({}, document.title, '/dashboard');
-        }).catch(err => console.error('Error confirmando pago:', err));
-      }
-    }
-  }, [user]);
 
     getUser();
     loadTransactions();
@@ -195,6 +171,46 @@ export default function DashboardPage() {
 
     return () => supabase.removeChannel(channel);
   }, []);
+
+  // CARGAR PLAN (PRO O GRATUITO)
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('subscriptions')
+      .select('plan,status')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.status === 'active') setIsPro(true);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  // CONFIRMAR PAGO ÚNICO AL VOLVER DE STRIPE
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const sessionId = params.get('session_id');
+
+    if (success === 'true' && sessionId) {
+      fetch('/api/confirm-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            setIsPro(true);
+            setJustUpgraded(true);
+          }
+        })
+        .catch((err) => console.error('Error confirmando pago:', err))
+        .finally(() => {
+          window.history.replaceState({}, document.title, '/dashboard');
+        });
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -314,7 +330,6 @@ export default function DashboardPage() {
       });
     });
 
-    // Actividad por intervalo (sube y baja, estilo Stripe)
     const flow = buckets.map((b) => {
       const row = { date: b.label };
       platformList.forEach((p) => {
@@ -498,7 +513,9 @@ export default function DashboardPage() {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-semibold leading-tight">{user?.email}</p>
-                <p className={`text-xs ${c.faint}`}>Plan gratuito</p>
+                <p className={`text-xs ${isPro ? 'text-accent-500 font-semibold' : c.faint}`}>
+                  {isPro ? 'Plan Pro · de por vida' : 'Plan gratuito'}
+                </p>
               </div>
               <button onClick={() => setSettingsOpen(!settingsOpen)} className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`} aria-label="Ajustes">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -520,7 +537,11 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
                       <span className="text-sm font-medium">Modo oscuro</span>
                       <button
-                        onClick={() => setThemeAndSave(dark ? 'light' : 'dark')}
+                        onClick={() => {
+                          const t = dark ? 'light' : 'dark';
+                          setTheme(t);
+                          localStorage.setItem('fs-theme', t);
+                        }}
                         className={`relative h-6 w-11 rounded-full transition ${dark ? 'bg-brand-500' : 'bg-slate-300'}`}
                         aria-label="Cambiar tema"
                       >
@@ -559,6 +580,27 @@ export default function DashboardPage() {
 
       {/* MAIN */}
       <main className="px-6 py-8">
+        {justUpgraded && (
+          <div className="mb-6 flex items-center justify-between rounded-xl border border-accent-500/30 bg-accent-500/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-500/20">
+                <svg className="h-5 w-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-accent-500">¡Pago completado!</p>
+                <p className={`text-xs ${c.sub}`}>Ya tienes Flipscale Pro para siempre. Gracias por confiar en nosotros.</p>
+              </div>
+            </div>
+            <button onClick={() => setJustUpgraded(false)} className={`rounded-lg p-2 transition ${c.navIdle}`} aria-label="Cerrar aviso">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {showForm && (
           <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
             <div className="grid gap-4 md:grid-cols-5">
@@ -712,7 +754,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* GRÁFICO GRANDE: curvas suaves que suben y bajan */}
+        {/* GRÁFICO GRANDE */}
         <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold">Actividad por plataforma</h3>
