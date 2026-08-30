@@ -164,6 +164,24 @@ export default function DashboardPage() {
       setUser(user);
       setLoading(false);
     };
+      // CONFIRMAR PAGO ÚNICO AL VOLVER DE STRIPE
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const success = params.get('success');
+      const sessionId = params.get('session_id');
+      
+      if (success === 'true' && sessionId && user?.id) {
+        fetch('/api/confirm-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        }).then(() => {
+          window.history.replaceState({}, document.title, '/dashboard');
+        }).catch(err => console.error('Error confirmando pago:', err));
+      }
+    }
+  }, [user]);
 
     getUser();
     loadTransactions();
