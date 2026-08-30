@@ -30,7 +30,7 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
           obs.disconnect();
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.1 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -140,6 +140,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-ink-950 text-white">
+      {/* NAV */}
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
           scrolled ? 'border-b border-white/5 bg-ink-950/80 backdrop-blur-xl' : 'bg-transparent'
@@ -148,7 +149,7 @@ export default function Home() {
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]">
             <Logo className="h-11 w-11 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)]" />
-            <span className="font-display text-lg font-semibold tracking-wide">
+            <span className="font-serif text-lg font-medium tracking-[0.3em]">
               FLIP<span className="text-accent-500">SCALE</span>
             </span>
           </Link>
@@ -197,32 +198,43 @@ export default function Home() {
         </div>
       </header>
 
+      {/* HERO */}
       <section className="relative overflow-hidden px-6 pb-24 pt-36 md:pt-44">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-brand-500/10 blur-3xl" />
           <div className="absolute right-0 top-1/3 h-[400px] w-[400px] rounded-full bg-accent-500/5 blur-3xl" />
         </div>
         <div className="relative mx-auto max-w-4xl text-center">
-          <h1 className="animate-fade-up ad-1 font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-8xl">
-            Reventa con <span className="text-gradient">inteligencia.</span>
-          </h1>
-          <p className="animate-fade-up ad-2 mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
-            Flipscale convierte cada venta y cada gasto en decisiones. Beneficio real por
-            plataforma, en tiempo real, sin hojas de cálculo.
-          </p>
-          <div className="animate-fade-up ad-3 mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/register" className="btn-primary">
-              Empieza gratis
-            </Link>
-            <a href="#como-funciona" className="btn-ghost">
-              Ver cómo funciona →
-            </a>
-          </div>
-          <p className="animate-fade-up ad-4 mt-6 text-xs text-slate-500">
-            Sin tarjeta · Listo en 2 minutos · Cancela cuando quieras
-          </p>
+          <Reveal>
+            <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-4 py-1.5 text-xs font-medium text-brand-300 backdrop-blur">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
+              </span>
+              Para revendedores de Vinted, Wallapop y Etsy
+            </p>
+            <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-8xl">
+              Reventa con <span className="text-gradient">inteligencia.</span>
+            </h1>
+            <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
+              Flipscale convierte cada venta y cada gasto en decisiones. Beneficio real por
+              plataforma, en tiempo real, sin hojas de cálculo.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+              <Link href="/register" className="btn-primary">
+                Empieza gratis
+              </Link>
+              <a href="#como-funciona" className="btn-ghost">
+                Ver cómo funciona →
+              </a>
+            </div>
+            <p className="mt-6 text-xs text-slate-500">
+              Sin tarjeta · Listo en 2 minutos · Licencia de por vida
+            </p>
+          </Reveal>
         </div>
 
+        {/* PRODUCTO FLOTANTE */}
         <Reveal className="relative mx-auto mt-24 max-w-5xl">
           <div className="relative">
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-500/20 via-accent-500/10 to-transparent blur-2xl" />
@@ -254,9 +266,9 @@ export default function Home() {
                   <p className="mt-1 font-display text-xl font-bold text-accent-500 md:text-2xl">183,14 €</p>
                 </div>
               </div>
-              <div className="flex h-28 items-end gap-2 md:h-40">
+              <div className="flex h-28 items-stretch gap-2 md:h-40">
                 {[35, 55, 40, 70, 62, 88, 45, 72].map((h, i) => (
-                  <div key={i} className="flex flex-1 items-end gap-1">
+                  <div key={i} className="flex h-full flex-1 items-end gap-1">
                     <div
                       className="flex-1 rounded-t-md bg-gradient-to-t from-brand-700 to-brand-400 transition-all duration-500 hover:from-brand-600 hover:to-brand-300"
                       style={{ height: `${h}%` }}
@@ -268,11 +280,22 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+              <div className="mt-6 space-y-2">
+                <div className="flex items-center justify-between rounded-lg bg-ink-800 px-4 py-2.5 text-sm">
+                  <span className="text-slate-300">Venta · Vinted</span>
+                  <span className="font-semibold text-brand-400">+45,00 €</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-ink-800 px-4 py-2.5 text-sm">
+                  <span className="text-slate-300">Gasto · Embalaje</span>
+                  <span className="font-semibold text-red-400">-2,50 €</span>
+                </div>
+              </div>
             </div>
           </div>
         </Reveal>
       </section>
 
+      {/* MARKETPLACES */}
       <section className="border-t border-white/5 pb-24 pt-8">
         <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-slate-500">
           Compatible con tus marketplaces
@@ -281,10 +304,11 @@ export default function Home() {
           <span className="transition hover:text-white">Vinted</span>
           <span className="transition hover:text-white">Wallapop</span>
           <span className="transition hover:text-white">Etsy</span>
-          <span className="text-xl font-semibold text-slate-600 transition hover:text-slate-400">Otros...</span>
+          <span className="text-xl font-semibold text-slate-600 transition hover:text-slate-400">+ otros</span>
         </div>
       </section>
 
+      {/* PRODUCTO */}
       <section
         id="producto"
         className="relative -mt-12 rounded-t-[2.5rem] bg-paper px-6 pb-40 pt-24 text-ink-950 shadow-[0_-24px_60px_-24px_rgba(11,18,32,0.5)] md:rounded-t-[3.5rem]"
@@ -310,9 +334,11 @@ export default function Home() {
                   Cada movimiento actualiza ingresos, gastos y margen al instante. Por
                   plataforma, por categoría, por mes.
                 </p>
-                <div className="mt-8 flex h-24 items-end gap-2">
+                <div className="mt-8 flex h-24 items-stretch gap-2">
                   {[40, 65, 50, 80, 70, 95, 60, 85].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-brand-600 to-brand-400" style={{ height: `${h}%` }} />
+                    <div key={i} className="flex h-full flex-1 items-end">
+                      <div className="flex-1 rounded-t bg-gradient-to-t from-brand-600 to-brand-400" style={{ height: `${h}%` }} />
+                    </div>
                   ))}
                 </div>
               </TiltCard>
@@ -364,7 +390,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* BLOQUE OSCURO */}
       <div className="relative -mt-12 rounded-t-[2.5rem] bg-ink-950 shadow-[0_-24px_60px_-24px_rgba(11,18,32,0.5)] md:rounded-t-[3.5rem]">
+        {/* CÓMO FUNCIONA */}
         <section id="como-funciona" className="px-6 pb-28 pt-32">
           <div className="mx-auto max-w-6xl">
             <Reveal>
@@ -379,7 +407,7 @@ export default function Home() {
               {[
                 ['01', 'Crea tu cuenta', 'Dos minutos, sin tarjeta. Tu panel queda listo y conectado a tu móvil.'],
                 ['02', 'Registra movimientos', 'Ingresos y gastos por plataforma, desde el móvil o la web, con decimales y notas.'],
-                ['03', 'Decide con datos', 'Descubre qué plataforma te da beneficio real y escala lo que funciona.'],
+                ['03', 'Activa tu licencia', 'Un solo pago de 5 € y accede a todo para siempre. Sin cuotas ni renovaciones.'],
               ].map(([n, t, d], i) => (
                 <Reveal key={n} className={i === 1 ? 'md:translate-y-8' : ''}>
                   <div className="group rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur transition-all duration-500 hover:border-brand-500/30 hover:bg-white/10">
@@ -395,6 +423,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* TESTIMONIOS */}
         <section id="testimonios" className="border-y border-white/5 bg-ink-900/50 py-20">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal>
@@ -412,6 +441,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* CTA FINAL */}
         <section className="px-6 py-28 text-center">
           <Reveal>
             <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-ink-900/80 p-12 backdrop-blur-xl md:p-20">
@@ -424,20 +454,21 @@ export default function Home() {
                   <br />
                   <span className="text-gradient">Más beneficios.</span>
                 </p>
-                <Link href="/register" className="btn-primary mt-10 inline-block">
-                  Empieza gratis hoy
+                <Link href="/pricing" className="btn-primary mt-10 inline-block">
+                  Consigue tu licencia
                 </Link>
-                <p className="mt-4 text-xs text-slate-500">Sin tarjeta · 2 minutos para empezar</p>
+                <p className="mt-4 text-xs text-slate-500">5 € · pago único · para siempre</p>
               </div>
             </div>
           </Reveal>
         </section>
 
+        {/* FOOTER */}
         <footer className="border-t border-white/5 px-6 py-10">
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-slate-500 md:flex-row">
             <div className="flex items-center gap-2">
               <Logo className="h-8 w-8" />
-              <span className="font-display text-sm font-semibold tracking-wide">
+              <span className="font-serif text-sm font-medium tracking-[0.25em]">
                 FLIP<span className="text-accent-500">SCALE</span>
               </span>
             </div>

@@ -76,7 +76,7 @@ export default function PricingPage() {
     { title: 'Borrado de metadatos', desc: 'Limpia tus fotos de GPS y datos ocultos sin subirlas a ningún servidor.' },
     { title: 'Descripciones IA', desc: 'Genera descripciones profesionales multilingües con un clic.' },
     { title: 'Registro rápido', desc: 'Añade ventas en 5 segundos desde el móvil sin salir de tu rutina.' },
-    { title: 'Acceso de por vida', desc: 'Un solo pago. Sin suscripciones, sin renovaciones, sin sorpresas.' },
+    { title: 'Licencia de por vida', desc: 'Un solo pago. Sin suscripciones, sin renovaciones, sin sorpresas.' },
     { title: 'Funciones futuras', desc: 'Cada nueva herramienta que lancemos, la tendrás incluida.' },
   ];
 
@@ -123,7 +123,7 @@ export default function PricingPage() {
             <span className="text-gradient">Acceso para siempre.</span>
           </h1>
           <p className={`mx-auto mt-5 max-w-2xl text-lg ${c.sub}`}>
-            Olvídate de suscripciones mensuales. Paga una vez y accede a todas las herramientas de Flipscale de por vida.
+            Olvídate de cuotas mensuales. Paga una vez y accede a todas las herramientas de Flipscale de por vida.
           </p>
         </div>
 
