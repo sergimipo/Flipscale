@@ -9,6 +9,8 @@ import {
   Line,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -67,6 +69,31 @@ function ArrowIcon({ up, className = 'h-3 w-3' }) {
     <svg className={className} viewBox="0 0 20 20" fill="currentColor">
       <path d="M10 17l-6-6h4V3h4v8h4l-6 6z" />
     </svg>
+  );
+}
+
+// Tarjeta de métrica estilo Stripe con sparkline
+function MetricCard({ title, value, color, data, dataKey, dark, id, sub }) {
+  const gid = `grad-${id}`;
+  return (
+    <div className={`rounded-xl border p-5 transition hover:shadow-lg ${dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white'}`}>
+      <p className={`text-sm font-medium ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{title}</p>
+      <p className="mt-1 font-display text-2xl font-bold" style={{ color }}>{value}</p>
+      <div className="mt-3 h-14">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} fill={`url(#${gid})`} dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      {sub && <p className={`mt-2 text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>}
+    </div>
   );
 }
 
@@ -186,7 +213,6 @@ export default function DashboardPage() {
     return transactions.filter((t) => new Date(t.created_at) >= cutoff);
   }, [transactions, period]);
 
-  // GRÁFICO: beneficio ACUMULADO por plataforma (siempre tiene forma)
   const chartData = useMemo(() => {
     const pad = (n) => String(n).padStart(2, '0');
     const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -221,8 +247,10 @@ export default function DashboardPage() {
     }
 
     const nets = {};
+    const agg = {};
     buckets.forEach((b) => {
       nets[b.key] = {};
+      agg[b.key] = { ing: 0, gas: 0, count: 0 };
     });
     const platforms = new Set();
 
@@ -236,22 +264,47 @@ export default function DashboardPage() {
       const key = keyFor(new Date(t.created_at));
       if (!nets[key]) return;
       const cat = String(t.category).toLowerCase();
+      const amt = Number(t.amount);
       platforms.add(cat);
-      nets[key][cat] = (nets[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
+      nets[key][cat] = (nets[key][cat] || 0) + (t.type === 'ingreso' ? amt : -amt);
+      if (t.type === 'ingreso') agg[key].ing += amt;
+      else agg[key].gas += amt;
+      agg[key].count += 1;
     });
 
     const platformList = Array.from(platforms);
     const acc = {};
-    const data = buckets.map((b) => {
+    let accNet = 0;
+    let accIng = 0;
+    let accCount = 0;
+    const data = [];
+    const series = [];
+
+    buckets.forEach((b) => {
       const row = { date: b.label };
       platformList.forEach((p) => {
         acc[p] = (acc[p] || 0) + (nets[b.key][p] || 0);
         row[p] = acc[p];
       });
-      return row;
+      const ing = agg[b.key].ing;
+      const gas = agg[b.key].gas;
+      const count = agg[b.key].count;
+      accNet += ing - gas;
+      accIng += ing;
+      accCount += count;
+      series.push({
+        date: b.label,
+        ingresos: ing,
+        gastos: gas,
+        count,
+        beneficio: accNet,
+        ticket: accCount > 0 ? accIng / accCount : 0,
+        margen: accIng > 0 ? (accNet / accIng) * 100 : 0,
+      });
+      data.push(row);
     });
 
-    return { data, platforms: platformList };
+    return { data, series, platforms: platformList };
   }, [filteredTransactions, period]);
 
   const platformBreakdown = useMemo(() => {
@@ -295,6 +348,8 @@ export default function DashboardPage() {
 
   const axisColor = dark ? '#64748b' : '#94a3b8';
   const gridColor = dark ? 'rgba(255,255,255,0.06)' : '#e2e8f0';
+  const periodLabel =
+    period === 'day' ? 'Últimas 24 horas' : period === 'week' ? 'Últimos 7 días' : period === 'month' ? 'Últimos 30 días' : 'Últimos 12 meses';
 
   const toolItems = [
     {
@@ -336,11 +391,7 @@ export default function DashboardPage() {
               FLIP<span className="text-accent-500">SCALE</span>
             </span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className={`rounded-lg p-1.5 transition ${c.navIdle}`}
-            aria-label="Cerrar menú"
-          >
+          <button onClick={() => setSidebarOpen(false)} className={`rounded-lg p-1.5 transition ${c.navIdle}`} aria-label="Cerrar menú">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -430,11 +481,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-semibold leading-tight">{user?.email}</p>
                 <p className={`text-xs ${c.faint}`}>Plan gratuito</p>
               </div>
-              <button
-                onClick={() => setSettingsOpen(!settingsOpen)}
-                className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`}
-                aria-label="Ajustes"
-              >
+              <button onClick={() => setSettingsOpen(!settingsOpen)} className={`ml-1 rounded-lg p-2 transition ${c.navIdle}`} aria-label="Ajustes">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path
                     strokeLinecap="round"
@@ -466,17 +513,10 @@ export default function DashboardPage() {
                       </button>
                     </div>
 
-                    <Link
-                      href="/pricing"
-                      onClick={() => setSettingsOpen(false)}
-                      className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
-                    >
+                    <Link href="/pricing" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
                       Plan y suscripción
                     </Link>
-                    <Link
-                      href="/"
-                      className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
-                    >
+                    <Link href="/" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
                       Ir a la web
                     </Link>
                     <div className={`my-1 h-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
@@ -558,26 +598,18 @@ export default function DashboardPage() {
           </form>
         )}
 
-        {/* KPIs */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {[
-            { label: 'Ingresos', value: fmt(kpis.ingresos), color: 'text-brand-500' },
-            { label: 'Gastos', value: fmt(kpis.gastos), color: 'text-red-500' },
-            { label: 'Beneficio', value: fmt(kpis.beneficio), color: kpis.beneficio >= 0 ? 'text-brand-500' : 'text-red-500' },
-            { label: 'Margen', value: kpis.margen.toFixed(1) + '%', color: '' },
-            { label: 'Ticket medio', value: fmt(kpis.ticketMedio), color: '' },
-            { label: 'Movimientos', value: String(kpis.transacciones), color: '' },
-          ].map((k) => (
-            <div key={k.label} className={`rounded-xl border p-5 ${c.card}`}>
-              <p className={`text-xs font-medium ${c.sub}`}>{k.label}</p>
-              <p className={`mt-1 font-display text-2xl font-bold ${k.color}`}>{k.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* PERIODO */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold">Análisis</h2>
+        {/* RESUMEN (estilo Stripe) */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-display text-2xl font-bold">Tu resumen</h2>
+            <p className={`mt-1 flex items-center gap-2 text-xs ${c.faint}`}>
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
+              </span>
+              Actualizado en tiempo real · {periodLabel}
+            </p>
+          </div>
           <div className={`flex gap-1 rounded-lg p-1 ${dark ? 'bg-ink-800' : 'bg-slate-100'}`}>
             {['day', 'week', 'month', 'year'].map((p) => (
               <button
@@ -597,13 +629,75 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* GRÁFICO PRINCIPAL */}
+        {/* TARJETAS DE MÉTRICAS CON SPARKLINES */}
+        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <MetricCard
+            id="beneficio"
+            title="Beneficio"
+            value={fmt(kpis.beneficio)}
+            color={kpis.beneficio >= 0 ? '#14B8A6' : '#ef4444'}
+            data={chartData.series}
+            dataKey="beneficio"
+            dark={dark}
+            sub="Acumulado del periodo"
+          />
+          <MetricCard
+            id="ingresos"
+            title="Ingresos"
+            value={fmt(kpis.ingresos)}
+            color="#2DD4BF"
+            data={chartData.series}
+            dataKey="ingresos"
+            dark={dark}
+            sub="Por intervalo"
+          />
+          <MetricCard
+            id="gastos"
+            title="Gastos"
+            value={fmt(kpis.gastos)}
+            color="#ef4444"
+            data={chartData.series}
+            dataKey="gastos"
+            dark={dark}
+            sub="Por intervalo"
+          />
+          <MetricCard
+            id="margen"
+            title="Margen"
+            value={kpis.margen.toFixed(1) + '%'}
+            color="#F59E0B"
+            data={chartData.series}
+            dataKey="margen"
+            dark={dark}
+            sub="Beneficio / ingresos"
+          />
+          <MetricCard
+            id="ticket"
+            title="Ticket medio"
+            value={fmt(kpis.ticketMedio)}
+            color="#8b5cf6"
+            data={chartData.series}
+            dataKey="ticket"
+            dark={dark}
+            sub="Por venta"
+          />
+          <MetricCard
+            id="movimientos"
+            title="Movimientos"
+            value={String(kpis.transacciones)}
+            color="#09B1BA"
+            data={chartData.series}
+            dataKey="count"
+            dark={dark}
+            sub="Por intervalo"
+          />
+        </div>
+
+        {/* GRÁFICO GRANDE */}
         <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold">Beneficio acumulado por plataforma</h3>
-            <span className={`text-xs ${c.faint}`}>
-              {period === 'day' ? 'Últimas 24 horas' : period === 'week' ? 'Últimos 7 días' : period === 'month' ? 'Últimos 30 días' : 'Últimos 12 meses'}
-            </span>
+            <span className={`text-xs ${c.faint}`}>{periodLabel}</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -696,13 +790,7 @@ export default function DashboardPage() {
                 <BarChart data={platformBreakdown} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                   <XAxis type="number" stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke={axisColor}
-                    style={{ fontSize: '12px' }}
-                    width={80}
-                  />
+                  <YAxis dataKey="name" type="category" stroke={axisColor} style={{ fontSize: '12px' }} width={80} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: dark ? '#0f1a2e' : '#fff',
@@ -743,9 +831,7 @@ export default function DashboardPage() {
                     <td className="px-6 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          t.type === 'ingreso'
-                            ? 'bg-brand-500/10 text-brand-500'
-                            : 'bg-red-500/10 text-red-500'
+                          t.type === 'ingreso' ? 'bg-brand-500/10 text-brand-500' : 'bg-red-500/10 text-red-500'
                         }`}
                       >
                         <ArrowIcon up={t.type === 'ingreso'} />
@@ -759,14 +845,8 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td className={`px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
-                    <td className={`px-6 py-3 ${c.sub}`}>
-                      {new Date(t.created_at).toLocaleDateString('es-ES')}
-                    </td>
-                    <td
-                      className={`px-6 py-3 text-right font-semibold ${
-                        t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'
-                      }`}
-                    >
+                    <td className={`px-6 py-3 ${c.sub}`}>{new Date(t.created_at).toLocaleDateString('es-ES')}</td>
+                    <td className={`px-6 py-3 text-right font-semibold ${t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'}`}>
                       {t.type === 'ingreso' ? '+' : '-'}
                       {fmt(Number(t.amount))}
                     </td>
