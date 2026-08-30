@@ -181,36 +181,66 @@ export default function DashboardPage() {
     const cutoff = new Date();
     if (period === 'day') cutoff.setDate(now.getDate() - 1);
     else if (period === 'week') cutoff.setDate(now.getDate() - 7);
-    else if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (period === 'month') cutoff.setDate(now.getDate() - 30);
     else cutoff.setFullYear(now.getFullYear() - 1);
     return transactions.filter((t) => new Date(t.created_at) >= cutoff);
   }, [transactions, period]);
 
+  // GRÁFICO: buckets según periodo (horas / días / meses) con huecos rellenos
   const chartData = useMemo(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const now = new Date();
+
+    const buckets = [];
+    if (period === 'day') {
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 3600 * 1000);
+        buckets.push({ key: `${pad(d.getHours())}:00`, label: `${pad(d.getHours())}:00` });
+      }
+    } else if (period === 'week') {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        buckets.push({ key: dayKey(d), label: d.toLocaleDateString('es-ES', { weekday: 'short' }) });
+      }
+    } else if (period === 'month') {
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        buckets.push({ key: dayKey(d), label: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) });
+      }
+    } else {
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        buckets.push({
+          key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
+          label: d.toLocaleDateString('es-ES', { month: 'short' }),
+        });
+      }
+    }
+
     const grouped = {};
+    buckets.forEach((b) => {
+      grouped[b.key] = { date: b.label };
+    });
     const platforms = new Set();
 
-    filteredTransactions.forEach((t) => {
-      const date = new Date(t.created_at);
-      let key;
-      if (period === 'day') key = date.toISOString().split('T')[0];
-      else if (period === 'week') {
-        const ws = new Date(date);
-        ws.setDate(date.getDate() - date.getDay());
-        key = ws.toISOString().split('T')[0];
-      } else if (period === 'month') key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      else key = String(date.getFullYear());
+    const keyFor = (d) => {
+      if (period === 'day') return `${pad(d.getHours())}:00`;
+      if (period === 'year') return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      return dayKey(d);
+    };
 
-      if (!grouped[key]) grouped[key] = { date: key };
+    filteredTransactions.forEach((t) => {
+      const key = keyFor(new Date(t.created_at));
+      if (!grouped[key]) return;
       const cat = String(t.category).toLowerCase();
       platforms.add(cat);
       grouped[key][cat] = (grouped[key][cat] || 0) + Number(t.amount) * (t.type === 'ingreso' ? 1 : -1);
     });
 
-    return {
-      data: Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)),
-      platforms: Array.from(platforms),
-    };
+    return { data: Object.values(grouped), platforms: Array.from(platforms) };
   }, [filteredTransactions, period]);
 
   const platformBreakdown = useMemo(() => {
@@ -278,12 +308,11 @@ export default function DashboardPage() {
 
   return (
     <div className={`min-h-screen ${c.page}`}>
-      {/* FONDO OSCURO CUANDO EL SIDEBAR ESTÁ ABIERTO */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* SIDEBAR: SOLO VISIBLE AL PULSAR EL LOGO */}
+      {/* SIDEBAR */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -320,7 +349,6 @@ export default function DashboardPage() {
             Dashboard
           </Link>
 
-          {/* HERRAMIENTAS: DESPLEGABLE */}
           <button
             onClick={() => setToolsOpen(!toolsOpen)}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}
@@ -368,7 +396,6 @@ export default function DashboardPage() {
       <header className={`sticky top-0 z-30 border-b backdrop-blur-xl ${c.header}`}>
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            {/* LOGO: ABRE EL SIDEBAR */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className={`flex items-center gap-3 rounded-lg p-1.5 transition hover:opacity-80 ${
@@ -384,7 +411,6 @@ export default function DashboardPage() {
 
             <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
 
-            {/* CUENTA + AJUSTES */}
             <div className="relative flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
                 {(user?.email || 'U').charAt(0).toUpperCase()}
@@ -463,7 +489,6 @@ export default function DashboardPage() {
 
       {/* MAIN */}
       <main className="px-6 py-8">
-        {/* FORMULARIO */}
         {showForm && (
           <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
             <div className="grid gap-4 md:grid-cols-5">
@@ -568,7 +593,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData.data}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} />
+                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} interval="preserveStartEnd" />
                 <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
                 <Tooltip
                   contentStyle={{
@@ -589,7 +614,7 @@ export default function DashboardPage() {
                     name={(PLATFORMS[platform] || PLATFORMS.otra).label}
                     stroke={(PLATFORMS[platform] || PLATFORMS.otra).color}
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={false}
                     activeDot={{ r: 5 }}
                   />
                 ))}
