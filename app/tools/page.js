@@ -342,9 +342,7 @@ export default function ToolsPage() {
             <div className={`rounded-xl border p-6 ${c.card}`}>
               <h3 className="font-display text-lg font-semibold">Por qué importa</h3>
               <p className={`mt-3 text-sm leading-relaxed ${c.sub}`}>
-                Al publicar fotos con metadatos, cualquier persona puede saber dónde vives o
-                dónde guardas el stock. Los compradores de segunda mano no necesitan esa
-                información: publícala limpia y vende con tranquilidad.
+                Al publicar fotos con metadatos si ya la has publicado una vez te eliminaran el anuncio, esta herramienta lo que hace es ahorrarte tiempo haciendo fotos a cada producto.
               </p>
             </div>
 
