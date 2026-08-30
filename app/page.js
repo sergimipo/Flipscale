@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 
-function Logo({ className = 'h-11 w-11' }: { className?: string }) {
+function Logo({ className = 'h-11 w-11' }) {
   return (
     <svg viewBox="0 0 1024 1024" fill="none" className={className} aria-label="Flipscale">
       <path
@@ -18,8 +19,8 @@ function Logo({ className = 'h-11 w-11' }: { className?: string }) {
   );
 }
 
-function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+function Reveal({ children, className = '' }) {
+  const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -42,9 +43,9 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
   );
 }
 
-function TiltCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const handleMove = (e: React.MouseEvent) => {
+function TiltCard({ children, className = '' }) {
+  const ref = useRef(null);
+  const handleMove = (e) => {
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -66,6 +67,45 @@ function TiltCard({ children, className = '' }: { children: React.ReactNode; cla
   );
 }
 
+const MOCK_SPARK_ING = [{ v: 0 }, { v: 0 }, { v: 120 }, { v: 650 }, { v: 690 }, { v: 900 }, { v: 1010 }, { v: 1152 }];
+const MOCK_SPARK_GAS = [{ v: 0 }, { v: 0 }, { v: 20 }, { v: 90 }, { v: 120 }, { v: 210 }, { v: 240 }, { v: 294 }];
+const MOCK_SPARK_BEN = [{ v: 0 }, { v: 0 }, { v: 100 }, { v: 560 }, { v: 570 }, { v: 690 }, { v: 770 }, { v: 858 }];
+
+const MOCK_ACTIVITY = [
+  { date: '1 ago', vinted: 0, wallapop: 0, etsy: 0 },
+  { date: '5 ago', vinted: 0, wallapop: 0, etsy: 0 },
+  { date: '9 ago', vinted: 0, wallapop: 0, etsy: 0 },
+  { date: '13 ago', vinted: 0, wallapop: 0, etsy: 0 },
+  { date: '15 ago', vinted: 650, wallapop: 90, etsy: 0 },
+  { date: '17 ago', vinted: 650, wallapop: 90, etsy: 120 },
+  { date: '19 ago', vinted: 900, wallapop: 90, etsy: 120 },
+  { date: '22 ago', vinted: 980, wallapop: 120, etsy: 120 },
+  { date: '26 ago', vinted: 1010, wallapop: 120, etsy: 150 },
+  { date: '30 ago', vinted: 1080, wallapop: 160, etsy: 150 },
+];
+
+function MockMetric({ title, value, color, data, id }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-ink-900 p-4">
+      <p className="text-sm font-medium text-slate-400">{title}</p>
+      <p className="mt-1 font-display text-2xl font-bold" style={{ color }}>{value}</p>
+      <div className="mt-2 h-12">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={`mock-${id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill={`url(#mock-${id})`} dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 const testimonials = [
   { name: 'Laura M.', role: 'Vendedora en Vinted', text: 'Pasé de intuir a saber. Ahora sé qué me deja beneficio real por plataforma.', rating: 5 },
   { name: 'Marc R.', role: 'Reseller en Wallapop', text: 'El atajo del móvil me ha cambiado la vida. Registro cada venta en 5 segundos.', rating: 5 },
@@ -77,7 +117,7 @@ const testimonials = [
   { name: 'Jordi S.', role: 'Vintage flipper', text: 'Saber mi beneficio real por plataforma me ayudó a centrar el negocio.', rating: 5 },
 ];
 
-function TestimonialCard({ t }: { t: (typeof testimonials)[0] }) {
+function TestimonialCard({ t }) {
   return (
     <div className="mx-2 flex w-[340px] flex-shrink-0 flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-all duration-300 hover:border-brand-500/50 hover:bg-white/10 md:w-[380px]">
       <div>
@@ -103,9 +143,9 @@ function TestimonialCard({ t }: { t: (typeof testimonials)[0] }) {
   );
 }
 
-function MarqueeRow({ reverse = false }: { reverse?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const setSpeed = (rate: number) => {
+function MarqueeRow({ reverse = false }) {
+  const ref = useRef(null);
+  const setSpeed = (rate) => {
     ref.current?.getAnimations({ subtree: true }).forEach((a) => {
       a.playbackRate = rate;
     });
@@ -206,13 +246,6 @@ export default function Home() {
         </div>
         <div className="relative mx-auto max-w-4xl text-center">
           <Reveal>
-            <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-4 py-1.5 text-xs font-medium text-brand-300 backdrop-blur">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
-              </span>
-              Para revendedores de Vinted, Wallapop y Etsy
-            </p>
             <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-8xl">
               Reventa con <span className="text-gradient">inteligencia.</span>
             </h1>
@@ -234,60 +267,84 @@ export default function Home() {
           </Reveal>
         </div>
 
-        {/* PRODUCTO FLOTANTE */}
+        {/* MOCK DEL DASHBOARD REAL */}
         <Reveal className="relative mx-auto mt-24 max-w-5xl">
           <div className="relative">
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-500/20 via-accent-500/10 to-transparent blur-2xl" />
-            <div className="animate-float relative rounded-2xl border border-white/10 bg-ink-900/80 p-5 shadow-2xl backdrop-blur-xl md:p-8">
-              <div className="mb-6 flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Logo className="h-7 w-7" />
-                  <p className="font-semibold text-slate-300">Resumen · agosto</p>
+            <div className="relative rounded-2xl border border-white/10 bg-ink-900/80 p-5 shadow-2xl backdrop-blur-xl md:p-8">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="font-display text-lg font-semibold">Tu resumen</p>
+                  <p className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
+                    </span>
+                    Actualizado en tiempo real · Últimos 30 días
+                  </p>
                 </div>
-                <span className="flex items-center gap-1.5 text-xs text-brand-400">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
-                  </span>
-                  En vivo
-                </span>
-              </div>
-              <div className="mb-8 grid grid-cols-3 gap-3 md:gap-4">
-                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
-                  <p className="text-xs text-slate-400">Ingresos</p>
-                  <p className="mt-1 font-display text-xl font-bold text-brand-400 md:text-2xl">241,34 €</p>
-                </div>
-                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
-                  <p className="text-xs text-slate-400">Gastos</p>
-                  <p className="mt-1 font-display text-xl font-bold text-red-400 md:text-2xl">58,20 €</p>
-                </div>
-                <div className="rounded-xl bg-ink-800/50 p-4 transition-all duration-300 hover:bg-ink-800">
-                  <p className="text-xs text-slate-400">Beneficio</p>
-                  <p className="mt-1 font-display text-xl font-bold text-accent-500 md:text-2xl">183,14 €</p>
+                <div className="flex gap-1 rounded-lg bg-ink-800 p-1">
+                  {['Día', 'Semana', 'Mes', 'Año'].map((p) => (
+                    <span
+                      key={p}
+                      className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                        p === 'Mes' ? 'bg-ink-950 text-white shadow' : 'text-slate-400'
+                      }`}
+                    >
+                      {p}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <div className="flex h-28 items-stretch gap-2 md:h-40">
-                {[35, 55, 40, 70, 62, 88, 45, 72].map((h, i) => (
-                  <div key={i} className="flex h-full flex-1 items-end gap-1">
-                    <div
-                      className="flex-1 rounded-t-md bg-gradient-to-t from-brand-700 to-brand-400 transition-all duration-500 hover:from-brand-600 hover:to-brand-300"
-                      style={{ height: `${h}%` }}
-                    />
-                    <div
-                      className="flex-1 rounded-t-md bg-ink-700 transition-all duration-500 hover:bg-ink-600"
-                      style={{ height: `${h / 2.4}%` }}
-                    />
+
+              <div className="mb-6 grid gap-3 md:grid-cols-3">
+                <MockMetric id="ing" title="Ingresos" value="1.152,85 €" color="#2DD4BF" data={MOCK_SPARK_ING} />
+                <MockMetric id="gas" title="Gastos" value="294,46 €" color="#ef4444" data={MOCK_SPARK_GAS} />
+                <MockMetric id="ben" title="Beneficio" value="858,39 €" color="#14B8A6" data={MOCK_SPARK_BEN} />
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-ink-950/60 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-300">Actividad por plataforma</p>
+                  <div className="flex gap-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: '#09B1BA' }} />
+                      Vinted
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: '#10B981' }} />
+                      Wallapop
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: '#F1641E' }} />
+                      Etsy
+                    </span>
                   </div>
-                ))}
-              </div>
-              <div className="mt-6 space-y-2">
-                <div className="flex items-center justify-between rounded-lg bg-ink-800 px-4 py-2.5 text-sm">
-                  <span className="text-slate-300">Venta · Vinted</span>
-                  <span className="font-semibold text-brand-400">+45,00 €</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-ink-800 px-4 py-2.5 text-sm">
-                  <span className="text-slate-300">Gasto · Embalaje</span>
-                  <span className="font-semibold text-red-400">-2,50 €</span>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={MOCK_ACTIVITY}>
+                      <defs>
+                        <linearGradient id="mock-vinted" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#09B1BA" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#09B1BA" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="mock-wallapop" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="mock-etsy" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#F1641E" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#F1641E" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="#64748b" tickLine={false} axisLine={false} />
+                      <YAxis stroke="#64748b" tickLine={false} axisLine={false} width={50} tickFormatter={(n) => `${n} €`} />
+                      <Area type="monotone" dataKey="vinted" stroke="#09B1BA" strokeWidth={2.5} fill="url(#mock-vinted)" dot={false} />
+                      <Area type="monotone" dataKey="wallapop" stroke="#10B981" strokeWidth={2.5} fill="url(#mock-wallapop)" dot={false} />
+                      <Area type="monotone" dataKey="etsy" stroke="#F1641E" strokeWidth={2.5} fill="url(#mock-etsy)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
@@ -304,7 +361,7 @@ export default function Home() {
           <span className="transition hover:text-white">Vinted</span>
           <span className="transition hover:text-white">Wallapop</span>
           <span className="transition hover:text-white">Etsy</span>
-          <span className="text-xl font-semibold text-slate-600 transition hover:text-slate-400">+ otros</span>
+          <span className="transition hover:text-white">Otros...</span>
         </div>
       </section>
 
@@ -367,8 +424,10 @@ export default function Home() {
                 <p className="mt-3 leading-relaxed text-slate-600">
                   Limpia los metadatos de tus imágenes antes de publicarlas.
                 </p>
-                <div className="mt-6 rounded-lg bg-slate-50 p-4 text-center">
-                  <span className="text-4xl">🛡️</span>
+                <div className="mt-6 flex justify-center rounded-lg bg-slate-50 p-4">
+                  <svg className="h-9 w-9 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                  </svg>
                 </div>
               </TiltCard>
             </Reveal>
@@ -392,7 +451,6 @@ export default function Home() {
 
       {/* BLOQUE OSCURO */}
       <div className="relative -mt-12 rounded-t-[2.5rem] bg-ink-950 shadow-[0_-24px_60px_-24px_rgba(11,18,32,0.5)] md:rounded-t-[3.5rem]">
-        {/* CÓMO FUNCIONA */}
         <section id="como-funciona" className="px-6 pb-28 pt-32">
           <div className="mx-auto max-w-6xl">
             <Reveal>
@@ -423,7 +481,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* TESTIMONIOS */}
         <section id="testimonios" className="border-y border-white/5 bg-ink-900/50 py-20">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal>
@@ -441,7 +498,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA FINAL */}
         <section className="px-6 py-28 text-center">
           <Reveal>
             <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-ink-900/80 p-12 backdrop-blur-xl md:p-20">
@@ -463,7 +519,6 @@ export default function Home() {
           </Reveal>
         </section>
 
-        {/* FOOTER */}
         <footer className="border-t border-white/5 px-6 py-10">
           <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-slate-500 md:flex-row">
             <div className="flex items-center gap-2">
