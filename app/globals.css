@@ -5,6 +5,7 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  background: #0b1220;
 }
 
 body {
@@ -16,6 +17,13 @@ body {
   @apply bg-brand-500/30;
 }
 
+/* En modo app (PWA) el header respeta la zona de la hora/batería */
+@media (display-mode: standalone) {
+  header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
 /* Espacio para el menú inferior en móvil */
 @media (max-width: 1023px) {
   main {
@@ -24,8 +32,14 @@ body {
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(40px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-up {
@@ -84,7 +98,7 @@ body {
 
 .btn-primary {
   @apply rounded-full px-7 py-3.5 text-sm font-semibold text-ink-950 transition-all duration-300;
-  background: linear-gradient(135deg, #FCD34D, #F59E0B);
+  background: linear-gradient(135deg, #fcd34d, #f59e0b);
   box-shadow: 0 2px 8px -2px rgba(245, 158, 11, 0.25);
 }
 
@@ -98,8 +112,8 @@ body {
 }
 
 .btn-ghost:hover {
-  background-color: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.3);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
 }
 
@@ -109,7 +123,7 @@ body {
 }
 
 .text-gradient {
-  background: linear-gradient(120deg, #2DD4BF, #14B8A6 45%, #F59E0B);
+  background: linear-gradient(120deg, #2dd4bf, #14b8a6 45%, #f59e0b);
   background-size: 200% 200%;
   animation: gradient-shift 6s ease infinite;
   -webkit-background-clip: text;
@@ -118,7 +132,7 @@ body {
 }
 
 .bg-animated-gradient {
-  background: linear-gradient(135deg, #0F3D3E, #14B8A6, #09868b, #F59E0B);
+  background: linear-gradient(135deg, #0f3d3e, #14b8a6, #09868b, #f59e0b);
   background-size: 300% 300%;
   animation: gradient-shift 8s ease infinite;
 }

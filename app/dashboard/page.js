@@ -76,7 +76,7 @@ function MetricCard({ title, value, color, data, dataKey, dark, id, sub }) {
     <div className={`rounded-xl border p-5 transition hover:shadow-lg ${dark ? 'border-white/10 bg-ink-900' : 'border-slate-200 bg-white'}`}>
       <p className={`text-sm font-medium ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{title}</p>
       <p className="mt-1 font-display text-2xl font-bold" style={{ color }}>{value}</p>
-      <div className="mt-3 h-14">
+      <div className="mt-2 h-14">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
             <defs>
@@ -123,7 +123,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
-    // Abrir formulario desde el botón + del menú inferior móvil
+
+  // Abrir formulario desde el menú inferior móvil (?add=1 o evento)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('add') === '1') setShowForm(true);
@@ -498,7 +499,7 @@ export default function DashboardPage() {
 
       {/* HEADER */}
       <header className={`sticky top-0 z-30 border-b backdrop-blur-xl ${c.header}`}>
-        <div className="flex h-16 items-center justify-between px-6">
+        <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -515,10 +516,21 @@ export default function DashboardPage() {
 
             <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
 
-            <div className="relative flex items-center gap-3">
+            <div className="relative flex items-center gap-2 sm:gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
                 {(user?.email || 'U').charAt(0).toUpperCase()}
               </div>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold sm:hidden ${
+                  isPro
+                    ? 'border-accent-500/30 bg-accent-500/10 text-accent-500'
+                    : dark
+                      ? 'border-white/10 bg-white/5 text-slate-400'
+                      : 'border-slate-200 bg-slate-100 text-slate-500'
+                }`}
+              >
+                {isPro ? 'PRO' : 'GRATIS'}
+              </span>
               <div className="hidden sm:block">
                 <p className="text-sm font-semibold leading-tight">{user?.email}</p>
                 <p className={`text-xs ${isPro ? 'text-accent-500 font-semibold' : c.faint}`}>
@@ -561,8 +573,15 @@ export default function DashboardPage() {
                       </button>
                     </div>
 
+                    <div className={`mx-3 mb-1 rounded-lg border px-3 py-2 ${dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'}`}>
+                      <p className={`text-xs ${c.faint}`}>Tu licencia</p>
+                      <p className={`text-sm font-bold ${isPro ? 'text-accent-500' : ''}`}>
+                        {isPro ? 'Pro · de por vida' : 'Gratuita'}
+                      </p>
+                    </div>
+
                     <Link href="/pricing" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
-                      Tu licencia
+                      Plan y suscripción
                     </Link>
                     <Link href="/" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
                       Ir a la web
@@ -587,7 +606,7 @@ export default function DashboardPage() {
       </header>
 
       {/* MAIN */}
-      <main className="px-6 py-8">
+      <main className="px-4 py-6 sm:px-6 sm:py-8">
         {justUpgraded && (
           <div className="mb-6 flex items-center justify-between rounded-xl border border-accent-500/30 bg-accent-500/10 p-4">
             <div className="flex items-center gap-3">
@@ -610,7 +629,7 @@ export default function DashboardPage() {
         )}
 
         {showForm && (
-          <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-6 ${c.card}`}>
+          <form onSubmit={handleSubmit} className={`mb-6 rounded-xl border p-4 sm:p-6 ${c.card}`}>
             <div className="grid gap-4 md:grid-cols-5">
               <div>
                 <label className={`mb-1.5 block text-xs font-medium ${c.sub}`}>Tipo</label>
@@ -684,7 +703,7 @@ export default function DashboardPage() {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-md px-3 sm:px-4 py-1.5 text-xs font-semibold transition ${
                   period === p
                     ? dark
                       ? 'bg-ink-950 text-white shadow'
@@ -699,7 +718,7 @@ export default function DashboardPage() {
         </div>
 
         {/* TARJETAS CON SPARKLINES */}
-        <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             id="beneficio"
             title="Beneficio"
@@ -763,12 +782,12 @@ export default function DashboardPage() {
         </div>
 
         {/* GRÁFICO GRANDE */}
-        <div className={`mb-8 rounded-xl border p-6 ${c.card}`}>
+        <div className={`mb-8 rounded-xl border p-4 sm:p-6 ${c.card}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold">Actividad por plataforma</h3>
             <span className={`text-xs ${c.faint}`}>{periodLabel}</span>
           </div>
-          <div className="h-80">
+          <div className="h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData.flow}>
                 <defs>
@@ -780,8 +799,8 @@ export default function DashboardPage() {
                   ))}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '12px' }} minTickGap={32} />
-                <YAxis stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
+                <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: '11px' }} minTickGap={32} tickLine={false} axisLine={false} />
+                <YAxis stroke={axisColor} style={{ fontSize: '11px' }} tickFormatter={fmtShort} tickLine={false} axisLine={false} width={50} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: dark ? '#0f1a2e' : '#fff',
@@ -813,7 +832,7 @@ export default function DashboardPage() {
 
         {/* DESGLOSES */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className={`rounded-xl border p-6 ${c.card}`}>
+          <div className={`rounded-xl border p-4 sm:p-6 ${c.card}`}>
             <h3 className="mb-4 font-display text-lg font-semibold">Rendimiento por plataforma</h3>
             <div className="space-y-5">
               {platformBreakdown.map((p) => (
@@ -861,14 +880,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className={`rounded-xl border p-6 ${c.card}`}>
+          <div className={`rounded-xl border p-4 sm:p-6 ${c.card}`}>
             <h3 className="mb-4 font-display text-lg font-semibold">Ingresos vs gastos</h3>
-            <div className="h-80">
+            <div className="h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={platformBreakdown} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                  <XAxis type="number" stroke={axisColor} style={{ fontSize: '12px' }} tickFormatter={fmtShort} />
-                  <YAxis dataKey="name" type="category" stroke={axisColor} style={{ fontSize: '12px' }} width={80} />
+                  <XAxis type="number" stroke={axisColor} style={{ fontSize: '11px' }} tickFormatter={fmtShort} />
+                  <YAxis dataKey="name" type="category" stroke={axisColor} style={{ fontSize: '11px' }} width={80} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: dark ? '#0f1a2e' : '#fff',
@@ -889,24 +908,24 @@ export default function DashboardPage() {
 
         {/* TABLA */}
         <div className={`mt-8 rounded-xl border ${c.card}`}>
-          <div className={`border-b px-6 py-4 ${c.row}`}>
+          <div className={`border-b px-4 sm:px-6 py-4 ${c.row}`}>
             <h3 className="font-display text-lg font-semibold">Transacciones recientes</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className={`border-b text-left ${c.row} ${c.sub}`}>
-                  <th className="px-6 py-3 font-medium">Tipo</th>
-                  <th className="px-6 py-3 font-medium">Plataforma</th>
-                  <th className="px-6 py-3 font-medium">Nota</th>
-                  <th className="px-6 py-3 font-medium">Fecha</th>
-                  <th className="px-6 py-3 text-right font-medium">Importe</th>
+                  <th className="px-4 sm:px-6 py-3 font-medium">Tipo</th>
+                  <th className="px-4 sm:px-6 py-3 font-medium">Plataforma</th>
+                  <th className="px-4 sm:px-6 py-3 font-medium">Nota</th>
+                  <th className="px-4 sm:px-6 py-3 font-medium">Fecha</th>
+                  <th className="px-4 sm:px-6 py-3 text-right font-medium">Importe</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.slice(0, 20).map((t) => (
                   <tr key={t.id} className={`border-b last:border-0 ${c.rowSoft}`}>
-                    <td className="px-6 py-3">
+                    <td className="px-4 sm:px-6 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                           t.type === 'ingreso' ? 'bg-brand-500/10 text-brand-500' : 'bg-red-500/10 text-red-500'
@@ -916,15 +935,15 @@ export default function DashboardPage() {
                         {t.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
                       </span>
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-4 sm:px-6 py-3">
                       <span className="flex items-center gap-2">
                         <PlatformIcon name={String(t.category).toLowerCase()} size={20} />
                         <span className="capitalize">{t.category}</span>
                       </span>
                     </td>
-                    <td className={`px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
-                    <td className={`px-6 py-3 ${c.sub}`}>{new Date(t.created_at).toLocaleDateString('es-ES')}</td>
-                    <td className={`px-6 py-3 text-right font-semibold ${t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'}`}>
+                    <td className={`px-4 sm:px-6 py-3 ${c.sub}`}>{t.note || '—'}</td>
+                    <td className={`px-4 sm:px-6 py-3 ${c.sub}`}>{new Date(t.created_at).toLocaleDateString('es-ES')}</td>
+                    <td className={`px-4 sm:px-6 py-3 text-right font-semibold ${t.type === 'ingreso' ? 'text-brand-500' : 'text-red-500'}`}>
                       {t.type === 'ingreso' ? '+' : '-'}
                       {fmt(Number(t.amount))}
                     </td>
