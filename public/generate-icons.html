@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generar iconos Flipscale</title>
+<style>
+  body { background:#0B1220; color:#fff; font-family:system-ui; display:flex; flex-direction:column; align-items:center; gap:16px; padding:40px; text-align:center; }
+  button { background:#F59E0B; border:none; border-radius:12px; padding:14px 24px; font-size:16px; font-weight:700; cursor:pointer; color:#0B1220; }
+  img { width:160px; border-radius:28px; }
+  code { background:#16233c; padding:2px 8px; border-radius:6px; }
+</style>
+</head>
+<body>
+<h1>Iconos PWA Flipscale</h1>
+<img src="/icon.svg" alt="logo">
+<p>Descarga cada PNG y guárdalo en la carpeta <code>public/</code> del proyecto.</p>
+<button onclick="download(192)">Descargar icon-192.png</button>
+<button onclick="download(512)">Descargar icon-512.png</button>
+<script>
+function download(size){
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    canvas.getContext('2d').drawImage(img, 0, 0, size, size);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'icon-' + size + '.png';
+      a.click();
+    }, 'image/png');
+  };
+  img.src = '/icon.svg';
+}
+</script>
+</body>
+</html>
