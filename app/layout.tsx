@@ -10,6 +10,14 @@ const space = Space_Grotesk({
   weight: ['400', '500', '600', '700'],
 });
 
+// Viewport oficial de Next: garantiza viewport-fit=cover y theme-color
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0B1220',
+};
+
 export const metadata: Metadata = {
   title: 'Flipscale — Inteligencia para revendedores',
   description:
@@ -26,16 +34,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
-        />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#0B1220" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+      <body className={`${inter.variable} ${space.variable} font-sans`}>
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -50,8 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `,
           }}
         />
-      </head>
-      <body className={`${inter.variable} ${space.variable} font-sans`}>
         {children}
         <BottomNav />
       </body>
