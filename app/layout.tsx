@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   icons: { icon: '/icon.svg', apple: '/icon-192.png' },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'black',
     title: 'Flipscale',
   },
 };
