@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
@@ -19,7 +18,6 @@ export default function BottomNav() {
 
   const dark = theme === 'dark';
 
-  // Pestaña activa según la URL exacta
   const activeKey =
     pathname === '/tools/description' ? 'ia' : pathname === '/tools' ? 'tools' : 'dashboard';
 
@@ -28,23 +26,12 @@ export default function BottomNav() {
   const active = dark ? 'text-blue-400' : 'text-blue-600';
   const cls = (key) => (activeKey === key ? active : idle);
 
-  const goAnalysis = () => {
-    if (pathname !== '/dashboard') {
-      router.push('/dashboard');
-      return;
-    }
-    const h3 = Array.from(document.querySelectorAll('h3')).find((el) =>
-      (el.textContent || '').includes('Actividad por plataforma')
-    );
-    if (h3) h3.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <nav
       className={`fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl lg:hidden ${bar}`}
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="mx-auto grid h-16 w-full max-w-md grid-cols-4 items-stretch">
+      <div className="mx-auto grid h-16 w-full max-w-md grid-cols-3 items-stretch">
         {/* RESUMEN */}
         <Link href="/dashboard" className={`flex flex-col items-center justify-center gap-1 py-2 transition ${cls('dashboard')}`}>
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -53,18 +40,6 @@ export default function BottomNav() {
           </svg>
           <span className={`text-[10px] ${activeKey === 'dashboard' ? 'font-bold' : 'font-semibold'}`}>Resumen</span>
         </Link>
-
-        {/* ANÁLISIS */}
-        <button onClick={goAnalysis} className={`flex flex-col items-center justify-center gap-1 py-2 transition ${idle}`}>
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-            />
-          </svg>
-          <span className="text-[10px] font-semibold">Análisis</span>
-        </button>
 
         {/* METADATOS */}
         <Link href="/tools" className={`flex flex-col items-center justify-center gap-1 py-2 transition ${cls('tools')}`}>
