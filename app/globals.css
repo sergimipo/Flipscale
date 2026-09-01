@@ -4,6 +4,7 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -15,7 +16,13 @@ body {
   @apply bg-brand-500/30;
 }
 
-/* ANIMACIONES DE ENTRADA */
+/* Espacio para el menú inferior en móvil */
+@media (max-width: 1023px) {
+  main {
+    padding-bottom: 6rem !important;
+  }
+}
+
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(40px); }
   to { opacity: 1; transform: translateY(0); }
@@ -31,7 +38,6 @@ body {
 .ad-4 { animation-delay: 0.7s; }
 .ad-5 { animation-delay: 0.9s; }
 
-/* REVEAL AL SCROLL */
 .reveal {
   opacity: 0;
   transform: translateY(50px);
@@ -43,7 +49,6 @@ body {
   transform: none;
 }
 
-/* FLOTANTE HERO */
 @keyframes float {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-12px) rotate(0.5deg); }
@@ -53,7 +58,6 @@ body {
   animation: float 7s ease-in-out infinite;
 }
 
-/* MARQUEE TESTIMONIOS */
 @keyframes marquee-left {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -72,14 +76,12 @@ body {
   animation: marquee-right 90s linear infinite;
 }
 
-/* TILT 3D CARDS */
 .tilt-card {
   transform-style: preserve-3d;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 
-/* BOTONES */
 .btn-primary {
   @apply rounded-full px-7 py-3.5 text-sm font-semibold text-ink-950 transition-all duration-300;
   background: linear-gradient(135deg, #FCD34D, #F59E0B);
@@ -101,7 +103,6 @@ body {
   transform: translateY(-2px);
 }
 
-/* GRADIENTE ANIMADO PARA TEXTO */
 @keyframes gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -122,7 +123,6 @@ body {
   animation: gradient-shift 8s ease infinite;
 }
 
-/* GLOW PULSANTE */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); }
   50% { box-shadow: 0 0 0 8px rgba(20, 184, 166, 0); }

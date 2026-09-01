@@ -123,6 +123,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
+    // Abrir formulario desde el botón + del menú inferior móvil
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('add') === '1') setShowForm(true);
+    const open = () => setShowForm(true);
+    window.addEventListener('flipscale-open-add', open);
+    return () => window.removeEventListener('flipscale-open-add', open);
+  }, []);
 
   const dark = theme === 'dark';
 
@@ -554,7 +562,7 @@ export default function DashboardPage() {
                     </div>
 
                     <Link href="/pricing" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
-                      Plan y suscripción
+                      Tu licencia
                     </Link>
                     <Link href="/" onClick={() => setSettingsOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${c.navIdle}`}>
                       Ir a la web
