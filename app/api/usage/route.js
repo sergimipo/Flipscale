@@ -22,15 +22,21 @@ export async function GET(req) {
       return Response.json({ error: 'Falta userId' }, { status: 400 });
     }
 
-    // Comprobar si es Pro
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan')
-      .eq('id', userId)
-      .single();
+    // ✅ Comprobar licencia Pro en la tabla subscriptions (donde se guarda el pago)
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (profile?.plan === 'pro') {
-      return Response.json({ allowed: true, remaining: 999999, count: 0, limit: 999999, plan: 'pro' });
+    if (sub && sub.status === 'active') {
+      return Response.json({
+        allowed: true,
+        remaining: 999999,
+        count: 0,
+        limit: 999999,
+        plan: 'pro',
+      });
     }
 
     const { start, end } = monthRange();
