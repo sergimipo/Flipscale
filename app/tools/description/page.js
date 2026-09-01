@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 function Logo({ className = 'h-9 w-9' }) {
   return (
@@ -19,9 +20,9 @@ function Logo({ className = 'h-9 w-9' }) {
 }
 
 const ALL_LANGUAGES = [
-  { code: 'es', label: '🇪🇸 Español' },
-  { code: 'en', label: '🇬🇧 Inglés' },
-  { code: 'fr', label: '🇫🇷 Francés' },
+  { code: 'es', label: 'Espanol' },
+  { code: 'en', label: 'Inglés' },
+  { code: 'fr', label: 'Francés' },
 ];
 
 const CONDITIONS = [
@@ -52,10 +53,40 @@ export default function DescriptionToolPage() {
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState('');
 
+  // Auth + usage
+  const [userId, setUserId] = useState(null);
+  const [plan, setPlan] = useState('free');
+  const [remaining, setRemaining] = useState(5);
+  const [usageCount, setUsageCount] = useState(0);
+  const [usageLimit, setUsageLimit] = useState(5);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
+  }, []);
+
+  // Auth + usage
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoadingAuth(false); return; }
+        setUserId(user.id);
+        const res = await fetch(`/api/usage?userId=${user.id}&tool=generate_description`);
+        const data = await res.json();
+        setPlan(data.plan || 'free');
+        setRemaining(data.remaining ?? 5);
+        setUsageCount(data.count ?? 0);
+        setUsageLimit(data.limit ?? 5);
+      } catch (e) {
+        console.error('Error cargando uso:', e);
+      } finally {
+        setLoadingAuth(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -63,6 +94,8 @@ export default function DescriptionToolPage() {
   }, []);
 
   const dark = theme === 'dark';
+  const isPro = plan === 'pro';
+  const blocked = !isPro && remaining <= 0;
 
   const c = {
     page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
@@ -78,6 +111,21 @@ export default function DescriptionToolPage() {
       ? 'border-white/10 bg-ink-800/60 text-slate-300 hover:bg-ink-800'
       : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
     chipActive: 'border-brand-500 bg-brand-500/10 text-brand-500',
+  };
+
+  const registerUsage = async () => {
+    if (!userId || isPro) return;
+    try {
+      await fetch('/api/usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'generate_description' }),
+      });
+      setUsageCount((p) => p + 1);
+      setRemaining((p) => Math.max(0, p - 1));
+    } catch (e) {
+      console.error('Error registrando uso:', e);
+    }
   };
 
   async function fetchPresets() {
@@ -191,6 +239,11 @@ export default function DescriptionToolPage() {
   }
 
   async function handleGenerate() {
+    // Comprobar límite
+    if (blocked) {
+      setGenerateError('Has alcanzado el límite gratuito de este mes. Pásate a Pro para seguir generando.');
+      return;
+    }
     if (!presetText.trim() && !shortDesc.trim()) {
       setGenerateError('Pega un preset o escribe una descripción.');
       return;
@@ -218,6 +271,8 @@ export default function DescriptionToolPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
       setGeneratedDescription(data.description);
+      // Registrar uso SOLO si tuvo éxito
+      await registerUsage();
     } catch (err) {
       console.error('Error completo:', err);
       setGenerateError(err.message || 'No se pudo generar la descripción.');
@@ -252,12 +307,25 @@ export default function DescriptionToolPage() {
             <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
             <span className={`text-sm font-medium ${c.sub}`}>Descripciones IA</span>
           </div>
-          <Link
-            href="/dashboard"
-            className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
-          >
-            ← Volver al dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            {!loadingAuth && (
+              <span className={`hidden rounded-full border px-3 py-1 text-xs font-semibold sm:inline-flex ${
+                isPro
+                  ? 'border-accent-500/30 bg-accent-500/10 text-accent-500'
+                  : blocked
+                    ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                    : 'border-brand-500/30 bg-brand-500/10 text-brand-500'
+              }`}>
+                {isPro ? 'Pro · Ilimitado' : `${remaining} de ${usageLimit} usos este mes`}
+              </span>
+            )}
+            <Link
+              href="/dashboard"
+              className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
+            >
+              ← Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -266,15 +334,37 @@ export default function DescriptionToolPage() {
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold">Descripciones IA</h1>
           <p className={`mt-2 max-w-2xl ${c.sub}`}>
-            Genera descripciones profesionales y multilingües a partir de una foto. La IA analiza
+            Genera descripciones profesionales y multilingues a partir de una foto. La IA analiza
             el producto, aplica tu preset y te devuelve textos listos para copiar y pegar en
             Vinted, Wallapop o Etsy.
           </p>
         </div>
 
+        {/* AVISO DE LÍMITE */}
+        {blocked && (
+          <div className={`mb-6 flex items-center justify-between rounded-xl border p-5 ${
+            dark ? 'border-red-500/30 bg-red-500/5' : 'border-red-200 bg-red-50'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
+                <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-500">Has alcanzado el limite gratuito</p>
+                <p className={`text-xs ${c.sub}`}>Has usado tus {usageLimit} usos gratuitos de este mes.</p>
+              </div>
+            </div>
+            <Link href="/pricing" className="btn-primary !px-5 !py-2.5 text-sm">
+              Desbloquear Pro
+            </Link>
+          </div>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-5">
           {/* FORMULARIO */}
-          <section className={`rounded-2xl border p-6 lg:col-span-3 ${c.card}`}>
+          <section className={`rounded-2xl border p-6 lg:col-span-3 ${c.card} ${blocked ? 'pointer-events-none opacity-50' : ''}`}>
             <h2 className="mb-5 font-display text-xl font-semibold">Datos del producto</h2>
 
             {/* PRESETS */}
@@ -286,9 +376,8 @@ export default function DescriptionToolPage() {
                 Pega la descripción de un producto similar o selecciona un preset guardado.
               </p>
 
-              {/* Lista de presets */}
               {loadingPresets && (
-                <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets…</p>
+                <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets...</p>
               )}
               {!loadingPresets && savedPresets.length > 0 && (
                 <div className="mb-3">
@@ -301,10 +390,7 @@ export default function DescriptionToolPage() {
                         key={preset.id}
                         className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${c.chip}`}
                       >
-                        <button
-                          onClick={() => loadSavedPreset(preset)}
-                          className="hover:text-brand-500"
-                        >
+                        <button onClick={() => loadSavedPreset(preset)} className="hover:text-brand-500">
                           {preset.name}
                         </button>
                         <button
@@ -330,7 +416,6 @@ export default function DescriptionToolPage() {
                 className={`w-full rounded-lg border px-3 py-2.5 font-mono text-sm outline-none transition ${c.input}`}
               />
 
-              {/* Guardar preset */}
               <div className="mt-2 flex gap-2">
                 <input
                   type="text"
@@ -344,7 +429,7 @@ export default function DescriptionToolPage() {
                   disabled={savingPreset || !presetText.trim() || !presetName.trim()}
                   className="btn-primary disabled:opacity-40 !px-4 !py-2 text-sm"
                 >
-                  {savingPreset ? 'Guardando…' : 'Guardar preset'}
+                  {savingPreset ? 'Guardando...' : 'Guardar preset'}
                 </button>
               </div>
             </div>
@@ -365,15 +450,9 @@ export default function DescriptionToolPage() {
               >
                 {imagePreview ? (
                   <div className="flex w-full items-center gap-4">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="h-20 w-20 shrink-0 rounded-lg object-cover"
-                    />
+                    <img src={imagePreview} alt="Vista previa" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
                     <div className="flex-1">
-                      <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                        Imagen cargada
-                      </p>
+                      <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Imagen cargada</p>
                       <p className={`text-xs ${c.faint}`}>Haz clic para cambiar</p>
                     </div>
                   </div>
@@ -384,20 +463,12 @@ export default function DescriptionToolPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                       </svg>
                     </div>
-                    <p className={`text-sm font-medium ${dark ? 'text-white' : 'text-ink-950'}`}>
-                      Haz clic para subir
-                    </p>
+                    <p className={`text-sm font-medium ${dark ? 'text-white' : 'text-ink-950'}`}>Haz clic para subir</p>
                     <p className={`mt-0.5 text-xs ${c.faint}`}>JPG, PNG, WEBP</p>
                   </>
                 )}
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             </div>
 
             {/* DESCRIPCIÓN BREVE */}
@@ -423,7 +494,7 @@ export default function DescriptionToolPage() {
             <div className="mb-5 grid grid-cols-2 gap-4">
               <div>
                 <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                  Precio (€) <span className={`font-normal ${c.faint}`}>(opcional)</span>
+                  Precio (EUR) <span className={`font-normal ${c.faint}`}>(opcional)</span>
                 </label>
                 <input
                   type="text"
@@ -444,9 +515,7 @@ export default function DescriptionToolPage() {
                 >
                   <option value="">-- Seleccionar --</option>
                   {CONDITIONS.map((cond) => (
-                    <option key={cond} value={cond}>
-                      {cond}
-                    </option>
+                    <option key={cond} value={cond}>{cond}</option>
                   ))}
                 </select>
               </div>
@@ -485,7 +554,7 @@ export default function DescriptionToolPage() {
             {/* BOTÓN GENERAR */}
             <button
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={generating || blocked}
               className="btn-primary w-full disabled:opacity-50"
             >
               {generating ? (
@@ -494,8 +563,10 @@ export default function DescriptionToolPage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
                     <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                   </svg>
-                  Generando…
+                  Generando...
                 </span>
+              ) : blocked ? (
+                'Limite alcanzado'
               ) : (
                 'Generar descripción'
               )}
@@ -522,10 +593,7 @@ export default function DescriptionToolPage() {
             {generating && (
               <div className="space-y-3">
                 {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className={`h-20 animate-pulse rounded-xl ${dark ? 'bg-ink-800' : 'bg-slate-100'}`}
-                  />
+                  <div key={i} className={`h-20 animate-pulse rounded-xl ${dark ? 'bg-ink-800' : 'bg-slate-100'}`} />
                 ))}
               </div>
             )}
@@ -533,11 +601,9 @@ export default function DescriptionToolPage() {
             {generatedDescription && (
               <div className="space-y-4">
                 {typeof generatedDescription === 'string' ? (
-                  <div
-                    className={`whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed ${
-                      dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'
-                    }`}
-                  >
+                  <div className={`whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed ${
+                    dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'
+                  }`}>
                     {generatedDescription}
                   </div>
                 ) : (
@@ -546,10 +612,7 @@ export default function DescriptionToolPage() {
                     const text = generatedDescription[code];
                     if (!text) return null;
                     return (
-                      <div
-                        key={code}
-                        className={`rounded-xl border p-4 ${dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'}`}
-                      >
+                      <div key={code} className={`rounded-xl border p-4 ${dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'}`}>
                         <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>
                           {lang?.label || code}
                         </p>

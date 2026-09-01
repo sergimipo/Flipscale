@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import exifr from 'exifr';
+import { createClient } from '@/lib/supabase/client';
 
 function Logo({ className = 'h-9 w-9' }) {
   return (
@@ -26,7 +27,7 @@ const fmtSize = (bytes) => {
 
 const outName = (f) =>
   f.type === 'image/png'
-    ? f.name.replace(/\.png$/i, '') + '-clean.png'
+    ? f.name.replace(/.png$/i, '') + '-clean.png'
     : f.name.replace(/\.[^.]+$/, '') + '-clean.jpg';
 
 const stripImage = (file) =>
@@ -62,11 +63,42 @@ export default function ToolsPage() {
   const [processing, setProcessing] = useState(false);
   const inputRef = useRef(null);
 
+  // Auth + usage
+  const [userId, setUserId] = useState(null);
+  const [plan, setPlan] = useState('free');
+  const [remaining, setRemaining] = useState(5);
+  const [usageCount, setUsageCount] = useState(0);
+  const [usageLimit, setUsageLimit] = useState(5);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
   useEffect(() => {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
 
+  // Obtener usuario y uso
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoadingAuth(false); return; }
+        setUserId(user.id);
+        const res = await fetch(`/api/usage?userId=${user.id}&tool=remove_metadata`);
+        const data = await res.json();
+        setPlan(data.plan || 'free');
+        setRemaining(data.remaining ?? 5);
+        setUsageCount(data.count ?? 0);
+        setUsageLimit(data.limit ?? 5);
+      } catch (e) {
+        console.error('Error cargando uso:', e);
+      } finally {
+        setLoadingAuth(false);
+      }
+    })();
+  }, []);
+
   const dark = theme === 'dark';
+  const isPro = plan === 'pro';
 
   const c = {
     page: dark ? 'bg-ink-950 text-white' : 'bg-paper text-ink-950',
@@ -82,6 +114,21 @@ export default function ToolsPage() {
       : dragging
         ? 'border-brand-500 bg-brand-500/5'
         : 'border-slate-300 bg-white hover:border-brand-500/60',
+  };
+
+  const registerUsage = async () => {
+    if (!userId || isPro) return;
+    try {
+      await fetch('/api/usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'remove_metadata' }),
+      });
+      setUsageCount((p) => p + 1);
+      setRemaining((p) => Math.max(0, p - 1));
+    } catch (e) {
+      console.error('Error registrando uso:', e);
+    }
   };
 
   const addFiles = async (fileList) => {
@@ -102,6 +149,7 @@ export default function ToolsPage() {
           status: 'pending',
           preview: URL.createObjectURL(file),
           cleanUrl: null,
+          cleanBlob: null,
         };
       })
     );
@@ -109,13 +157,17 @@ export default function ToolsPage() {
   };
 
   const cleanOne = async (item) => {
+    // Comprobar límite
+    if (!isPro && remaining <= 0) return;
+
     setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: 'cleaning' } : it)));
     try {
       const blob = await stripImage(item.file);
       const cleanUrl = URL.createObjectURL(blob);
       setItems((prev) =>
-        prev.map((it) => (it.id === item.id ? { ...it, status: 'clean', cleanUrl } : it))
+        prev.map((it) => (it.id === item.id ? { ...it, status: 'clean', cleanUrl, cleanBlob: blob } : it))
       );
+      await registerUsage();
     } catch (e) {
       setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: 'error' } : it)));
     }
@@ -125,9 +177,24 @@ export default function ToolsPage() {
     setProcessing(true);
     const pending = items.filter((i) => i.status === 'pending' || i.status === 'error');
     for (const it of pending) {
+      if (!isPro && remaining <= 0) break;
       await cleanOne(it);
     }
     setProcessing(false);
+  };
+
+  const downloadAll = () => {
+    const cleaned = items.filter((it) => it.status === 'clean' && it.cleanUrl);
+    cleaned.forEach((it, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = it.cleanUrl;
+        a.download = outName(it.file);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 300);
+    });
   };
 
   const removeItem = (id) => setItems((prev) => prev.filter((it) => it.id !== id));
@@ -135,6 +202,7 @@ export default function ToolsPage() {
   const totalMeta = items.reduce((s, it) => s + it.metaCount, 0);
   const cleanCount = items.filter((it) => it.status === 'clean').length;
   const pendingCount = items.filter((it) => it.status === 'pending' || it.status === 'error').length;
+  const blocked = !isPro && remaining <= 0;
 
   return (
     <div className={`min-h-screen ${c.page}`}>
@@ -151,12 +219,26 @@ export default function ToolsPage() {
             <div className={`mx-1 h-8 w-px ${dark ? 'bg-white/10' : 'bg-slate-200'}`} />
             <span className={`text-sm font-medium ${c.sub}`}>Borrado de metadatos</span>
           </div>
-          <Link
-            href="/dashboard"
-            className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
-          >
-            ← Volver al dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            {/* Badge de uso */}
+            {!loadingAuth && (
+              <span className={`hidden rounded-full border px-3 py-1 text-xs font-semibold sm:inline-flex ${
+                isPro
+                  ? 'border-accent-500/30 bg-accent-500/10 text-accent-500'
+                  : blocked
+                    ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                    : 'border-brand-500/30 bg-brand-500/10 text-brand-500'
+              }`}>
+                {isPro ? 'Pro · Ilimitado' : `${remaining} de ${usageLimit} usos este mes`}
+              </span>
+            )}
+            <Link
+              href="/dashboard"
+              className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
+            >
+              ← Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -171,31 +253,42 @@ export default function ToolsPage() {
           </p>
         </div>
 
+        {/* AVISO DE LÍMITE ALCANZADO */}
+        {blocked && (
+          <div className={`mb-6 flex items-center justify-between rounded-xl border p-5 ${
+            dark ? 'border-red-500/30 bg-red-500/5' : 'border-red-200 bg-red-50'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
+                <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-500">Has alcanzado el límite gratuito</p>
+                <p className={`text-xs ${c.sub}`}>Has usado tus {usageLimit} usos gratuitos de este mes.</p>
+              </div>
+            </div>
+            <Link href="/pricing" className="btn-primary !px-5 !py-2.5 text-sm">
+              Desbloquear Pro
+            </Link>
+          </div>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-3">
           {/* COLUMNA PRINCIPAL */}
           <div className="lg:col-span-2">
             {/* DROPZONE */}
             <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                addFiles(e.dataTransfer.files);
-              }}
+              onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}
               onClick={() => inputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-all duration-300 ${c.drop}`}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-all duration-300 ${c.drop} ${blocked ? 'pointer-events-none opacity-50' : ''}`}
             >
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/10">
                 <svg className="h-7 w-7 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
               </div>
               <p className="font-display text-lg font-semibold">Arrastra tus fotos aquí</p>
@@ -206,10 +299,7 @@ export default function ToolsPage() {
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(e) => {
-                  addFiles(e.target.files);
-                  e.target.value = '';
-                }}
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
               />
             </div>
 
@@ -228,6 +318,20 @@ export default function ToolsPage() {
                   </span>
                 </div>
                 <div className="flex gap-2">
+                  {/* DESCARGAR TODAS */}
+                  {cleanCount > 1 && (
+                    <button
+                      onClick={downloadAll}
+                      className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
+                        dark ? 'bg-brand-500/10 text-brand-500 hover:bg-brand-500/20' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
+                      }`}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Descargar todas ({cleanCount})
+                    </button>
+                  )}
                   <button
                     onClick={() => setItems([])}
                     className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -238,10 +342,10 @@ export default function ToolsPage() {
                   </button>
                   <button
                     onClick={cleanAll}
-                    disabled={processing || pendingCount === 0}
+                    disabled={processing || pendingCount === 0 || blocked}
                     className="btn-primary disabled:opacity-50"
                   >
-                    {processing ? 'Limpiando…' : `Limpiar todo (${pendingCount})`}
+                    {processing ? 'Limpiando...' : `Limpiar todo (${pendingCount})`}
                   </button>
                 </div>
               </div>
@@ -251,11 +355,7 @@ export default function ToolsPage() {
             <div className="mt-4 space-y-3">
               {items.map((it) => (
                 <div key={it.id} className={`flex items-center gap-4 rounded-xl border p-3 ${c.card}`}>
-                  <img
-                    src={it.preview}
-                    alt={it.file.name}
-                    className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                  />
+                  <img src={it.preview} alt={it.file.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{it.file.name}</p>
                     <p className={`mt-0.5 text-xs ${c.faint}`}>
@@ -281,18 +381,20 @@ export default function ToolsPage() {
                         </a>
                       </>
                     ) : it.status === 'cleaning' ? (
-                      <span className={`text-xs font-medium ${c.faint}`}>Limpiando…</span>
+                      <span className={`text-xs font-medium ${c.faint}`}>Limpiando...</span>
                     ) : it.status === 'error' ? (
                       <button
                         onClick={() => cleanOne(it)}
-                        className="rounded-lg bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500/20"
+                        disabled={blocked}
+                        className="rounded-lg bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500/20 disabled:opacity-50"
                       >
                         Reintentar
                       </button>
                     ) : (
                       <button
                         onClick={() => cleanOne(it)}
-                        className="rounded-lg bg-brand-500/10 px-4 py-2 text-xs font-semibold text-brand-500 transition hover:bg-brand-500/20"
+                        disabled={blocked}
+                        className="rounded-lg bg-brand-500/10 px-4 py-2 text-xs font-semibold text-brand-500 transition hover:bg-brand-500/20 disabled:opacity-50"
                       >
                         Limpiar
                       </button>
@@ -316,6 +418,33 @@ export default function ToolsPage() {
 
           {/* PANEL INFORMATIVO */}
           <div className="space-y-4">
+            {/* USO */}
+            {!loadingAuth && !isPro && (
+              <div className={`rounded-xl border p-6 ${c.card}`}>
+                <h3 className="font-display text-lg font-semibold">Tu plan</h3>
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm">
+                    <span className={c.sub}>Usos este mes</span>
+                    <span className="font-semibold">{usageCount} / {usageLimit}</span>
+                  </div>
+                  <div className={`mt-2 h-2 rounded-full ${dark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                    <div
+                      className={`h-2 rounded-full transition-all ${usageCount >= usageLimit ? 'bg-red-500' : 'bg-brand-500'}`}
+                      style={{ width: `${Math.min(100, (usageCount / usageLimit) * 100)}%` }}
+                    />
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className={`mt-4 block rounded-lg py-2.5 text-center text-sm font-semibold transition ${
+                      dark ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-ink-950 hover:bg-slate-200'
+                    }`}
+                  >
+                    Desbloquear uso ilimitado
+                  </Link>
+                </div>
+              </div>
+            )}
+
             <div className={`rounded-xl border p-6 ${c.card}`}>
               <h3 className="font-display text-lg font-semibold">Qué se elimina</h3>
               <div className="mt-4 space-y-3">
