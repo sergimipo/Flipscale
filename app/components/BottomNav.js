@@ -20,7 +20,7 @@ export default function BottomNav() {
   const dark = theme === 'dark';
   const bar = dark ? 'border-white/10 bg-ink-950/90' : 'border-slate-200 bg-white/90';
   const idle = dark ? 'text-slate-500' : 'text-slate-400';
-  const active = 'text-brand-500';
+  const active = dark ? 'text-blue-400' : 'text-blue-600';
   const tab = (p) => (pathname === p ? active : idle);
 
   const goAnalysis = () => {
