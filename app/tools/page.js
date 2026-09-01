@@ -27,7 +27,7 @@ const fmtSize = (bytes) => {
 
 const outName = (f) =>
   f.type === 'image/png'
-    ? f.name.replace(/.png$/i, '') + '-clean.png'
+    ? f.name.replace(/\.png$/i, '') + '-clean.png'
     : f.name.replace(/\.[^.]+$/, '') + '-clean.jpg';
 
 const stripImage = (file) =>
@@ -61,9 +61,10 @@ export default function ToolsPage() {
   const [items, setItems] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [savingGallery, setSavingGallery] = useState(false);
   const inputRef = useRef(null);
 
-  // Auth + usage
+  // Auth + uso
   const [userId, setUserId] = useState(null);
   const [plan, setPlan] = useState('free');
   const [remaining, setRemaining] = useState(5);
@@ -75,7 +76,6 @@ export default function ToolsPage() {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
 
-  // Obtener usuario y uso
   useEffect(() => {
     (async () => {
       try {
@@ -157,9 +157,7 @@ export default function ToolsPage() {
   };
 
   const cleanOne = async (item) => {
-    // Comprobar límite
     if (!isPro && remaining <= 0) return;
-
     setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: 'cleaning' } : it)));
     try {
       const blob = await stripImage(item.file);
@@ -183,8 +181,42 @@ export default function ToolsPage() {
     setProcessing(false);
   };
 
-  const downloadAll = () => {
-    const cleaned = items.filter((it) => it.status === 'clean' && it.cleanUrl);
+  // GUARDAR UNA EN LA GALERÍA (share sheet de iOS / Android)
+  const saveOne = async (it) => {
+    if (!it.cleanBlob) return;
+    const file = new File([it.cleanBlob], outName(it.file), { type: it.cleanBlob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'Flipscale' });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // canceló el menú
+      }
+    }
+    // Fallback: descarga normal
+    const a = document.createElement('a');
+    a.href = it.cleanUrl;
+    a.download = outName(it.file);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // GUARDAR TODAS EN LA GALERÍA
+  const saveAll = async () => {
+    setSavingGallery(true);
+    const cleaned = items.filter((i) => i.status === 'clean' && i.cleanBlob);
+    const files = cleaned.map((i) => new File([i.cleanBlob], outName(i.file), { type: i.cleanBlob.type }));
+    if (navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: 'Flipscale' });
+        setSavingGallery(false);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') { setSavingGallery(false); return; }
+      }
+    }
+    // Fallback: descargas secuenciales
     cleaned.forEach((it, i) => {
       setTimeout(() => {
         const a = document.createElement('a');
@@ -195,6 +227,7 @@ export default function ToolsPage() {
         document.body.removeChild(a);
       }, i * 300);
     });
+    setSavingGallery(false);
   };
 
   const removeItem = (id) => setItems((prev) => prev.filter((it) => it.id !== id));
@@ -220,7 +253,6 @@ export default function ToolsPage() {
             <span className={`text-sm font-medium ${c.sub}`}>Borrado de metadatos</span>
           </div>
           <div className="flex items-center gap-4">
-            {/* Badge de uso */}
             {!loadingAuth && (
               <span className={`hidden rounded-full border px-3 py-1 text-xs font-semibold sm:inline-flex ${
                 isPro
@@ -243,7 +275,6 @@ export default function ToolsPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        {/* TÍTULO */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold">Fotos sin rastros</h1>
           <p className={`mt-2 max-w-2xl ${c.sub}`}>
@@ -253,7 +284,6 @@ export default function ToolsPage() {
           </p>
         </div>
 
-        {/* AVISO DE LÍMITE ALCANZADO */}
         {blocked && (
           <div className={`mb-6 flex items-center justify-between rounded-xl border p-5 ${
             dark ? 'border-red-500/30 bg-red-500/5' : 'border-red-200 bg-red-50'
@@ -317,19 +347,14 @@ export default function ToolsPage() {
                     <span className="font-semibold text-brand-500">{cleanCount}</span> limpias
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  {/* DESCARGAR TODAS */}
-                  {cleanCount > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {cleanCount > 0 && (
                     <button
-                      onClick={downloadAll}
-                      className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition ${
-                        dark ? 'bg-brand-500/10 text-brand-500 hover:bg-brand-500/20' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'
-                      }`}
+                      onClick={saveAll}
+                      disabled={savingGallery}
+                      className="btn-primary disabled:opacity-50"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Descargar todas ({cleanCount})
+                      {savingGallery ? 'Preparando…' : `Guardar en galería (${cleanCount})`}
                     </button>
                   )}
                   <button
@@ -343,12 +368,21 @@ export default function ToolsPage() {
                   <button
                     onClick={cleanAll}
                     disabled={processing || pendingCount === 0 || blocked}
-                    className="btn-primary disabled:opacity-50"
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      dark ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-ink-950 hover:bg-slate-200'
+                    } disabled:opacity-50`}
                   >
-                    {processing ? 'Limpiando...' : `Limpiar todo (${pendingCount})`}
+                    {processing ? 'Limpiando…' : `Limpiar todo (${pendingCount})`}
                   </button>
                 </div>
               </div>
+            )}
+
+            {cleanCount > 0 && (
+              <p className={`mt-3 text-xs ${c.faint}`}>
+                «Guardar en galería» abre el menú de compartir de tu móvil: elige «Guardar imagen»
+                y las fotos limpias van directas a tu galería.
+              </p>
             )}
 
             {/* LISTA DE ARCHIVOS */}
@@ -370,18 +404,28 @@ export default function ToolsPage() {
                   <div className="flex shrink-0 items-center gap-2">
                     {it.status === 'clean' ? (
                       <>
-                        <span className="hidden items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-500 sm:inline-flex">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        <button
+                          onClick={() => saveOne(it)}
+                          className="btn-primary !px-4 !py-2 text-xs"
+                          title="Guardar en la galería"
+                        >
+                          Guardar
+                        </button>
+                        <a
+                          href={it.cleanUrl}
+                          download={outName(it.file)}
+                          className={`rounded-lg p-2 transition ${
+                            dark ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-500 hover:bg-slate-100'
+                          }`}
+                          title="Descargar archivo"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
-                          Limpia
-                        </span>
-                        <a href={it.cleanUrl} download={outName(it.file)} className="btn-primary !px-4 !py-2 text-xs">
-                          Descargar
                         </a>
                       </>
                     ) : it.status === 'cleaning' ? (
-                      <span className={`text-xs font-medium ${c.faint}`}>Limpiando...</span>
+                      <span className={`text-xs font-medium ${c.faint}`}>Limpiando…</span>
                     ) : it.status === 'error' ? (
                       <button
                         onClick={() => cleanOne(it)}
@@ -418,7 +462,6 @@ export default function ToolsPage() {
 
           {/* PANEL INFORMATIVO */}
           <div className="space-y-4">
-            {/* USO */}
             {!loadingAuth && !isPro && (
               <div className={`rounded-xl border p-6 ${c.card}`}>
                 <h3 className="font-display text-lg font-semibold">Tu plan</h3>
