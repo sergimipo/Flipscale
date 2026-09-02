@@ -20,7 +20,7 @@ function Logo({ className = 'h-9 w-9' }) {
 }
 
 const ALL_LANGUAGES = [
-  { code: 'es', label: 'Espanol' },
+  { code: 'es', label: 'Español' },
   { code: 'en', label: 'Inglés' },
   { code: 'fr', label: 'Francés' },
 ];
@@ -44,16 +44,17 @@ export default function DescriptionToolPage() {
   const [presetText, setPresetText] = useState('');
 
   const [generating, setGenerating] = useState(false);
+  const [generatedTitles, setGeneratedTitles] = useState(null);
   const [generatedDescription, setGeneratedDescription] = useState(null);
   const [generateError, setGenerateError] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(null);
 
   const [savedPresets, setSavedPresets] = useState([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState('');
 
-  // Auth + usage
+  // Auth + uso
   const [userId, setUserId] = useState(null);
   const [plan, setPlan] = useState('free');
   const [remaining, setRemaining] = useState(5);
@@ -67,7 +68,6 @@ export default function DescriptionToolPage() {
     if (localStorage.getItem('fs-theme') === 'light') setTheme('light');
   }, []);
 
-  // Auth + usage
   useEffect(() => {
     (async () => {
       try {
@@ -111,6 +111,7 @@ export default function DescriptionToolPage() {
       ? 'border-white/10 bg-ink-800/60 text-slate-300 hover:bg-ink-800'
       : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
     chipActive: 'border-brand-500 bg-brand-500/10 text-brand-500',
+    box: dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50',
   };
 
   const registerUsage = async () => {
@@ -212,10 +213,7 @@ export default function DescriptionToolPage() {
       const res = await fetch('/api/presets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: presetName.trim(),
-          template_text: presetText,
-        }),
+        body: JSON.stringify({ name: presetName.trim(), template_text: presetText }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -239,7 +237,6 @@ export default function DescriptionToolPage() {
   }
 
   async function handleGenerate() {
-    // Comprobar límite
     if (blocked) {
       setGenerateError('Has alcanzado el límite gratuito de este mes. Pásate a Pro para seguir generando.');
       return;
@@ -254,6 +251,7 @@ export default function DescriptionToolPage() {
     }
     setGenerating(true);
     setGenerateError('');
+    setGeneratedTitles(null);
     setGeneratedDescription(null);
     try {
       const res = await fetch('/api/generate-description', {
@@ -270,8 +268,8 @@ export default function DescriptionToolPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+      setGeneratedTitles(data.titles || null);
       setGeneratedDescription(data.description);
-      // Registrar uso SOLO si tuvo éxito
       await registerUsage();
     } catch (err) {
       console.error('Error completo:', err);
@@ -281,16 +279,56 @@ export default function DescriptionToolPage() {
     }
   }
 
-  function copyToClipboard() {
-    if (!generatedDescription) return;
-    const text =
-      typeof generatedDescription === 'string'
-        ? generatedDescription
-        : Object.values(generatedDescription).join('\n\n────────\n\n');
+  const langLabel = (code) => ALL_LANGUAGES.find((l) => l.code === code)?.label || code;
+
+  function copyText(text, key) {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   }
+
+  function copyAll() {
+    if (!generatedDescription) return;
+    const parts = [];
+    if (generatedTitles) {
+      languages.forEach((code) => {
+        if (generatedTitles[code]) parts.push(`${langLabel(code)}: ${generatedTitles[code]}`);
+      });
+      parts.push('────────');
+    }
+    if (typeof generatedDescription === 'string') {
+      parts.push(generatedDescription);
+    } else {
+      languages.forEach((code) => {
+        if (generatedDescription[code]) parts.push(`${langLabel(code)}\n${generatedDescription[code]}`);
+      });
+    }
+    copyText(parts.join('\n\n'), 'all');
+  }
+
+  const CopyBtn = ({ text, copyKey, small }) => (
+    <button
+      onClick={() => copyText(text, copyKey)}
+      className={`shrink-0 rounded-lg p-2 transition ${
+        copied === copyKey
+          ? 'bg-brand-500 text-white'
+          : dark
+            ? 'text-slate-400 hover:bg-white/5 hover:text-white'
+            : 'text-slate-500 hover:bg-slate-100'
+      } ${small ? '' : ''}`}
+      title="Copiar"
+    >
+      {copied === copyKey ? (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+    </button>
+  );
 
   return (
     <div className={`min-h-screen ${c.page}`}>
@@ -319,10 +357,7 @@ export default function DescriptionToolPage() {
                 {isPro ? 'Pro · Ilimitado' : `${remaining} de ${usageLimit} usos este mes`}
               </span>
             )}
-            <Link
-              href="/dashboard"
-              className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}
-            >
+            <Link href="/dashboard" className={`text-sm font-medium transition ${dark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-ink-950'}`}>
               ← Dashboard
             </Link>
           </div>
@@ -330,17 +365,14 @@ export default function DescriptionToolPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-10">
-        {/* TÍTULO */}
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold">Descripciones IA</h1>
           <p className={`mt-2 max-w-2xl ${c.sub}`}>
-            Genera descripciones profesionales y multilingues a partir de una foto. La IA analiza
-            el producto, aplica tu preset y te devuelve textos listos para copiar y pegar en
-            Vinted, Wallapop o Etsy.
+            La IA analiza tu producto y genera el título del anuncio y la descripción completa
+            en varios idiomas, listos para copiar y pegar en Vinted, Wallapop o Etsy.
           </p>
         </div>
 
-        {/* AVISO DE LÍMITE */}
         {blocked && (
           <div className={`mb-6 flex items-center justify-between rounded-xl border p-5 ${
             dark ? 'border-red-500/30 bg-red-500/5' : 'border-red-200 bg-red-50'
@@ -352,7 +384,7 @@ export default function DescriptionToolPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-bold text-red-500">Has alcanzado el limite gratuito</p>
+                <p className="text-sm font-bold text-red-500">Has alcanzado el límite gratuito</p>
                 <p className={`text-xs ${c.sub}`}>Has usado tus {usageLimit} usos gratuitos de este mes.</p>
               </div>
             </div>
@@ -376,28 +408,17 @@ export default function DescriptionToolPage() {
                 Pega la descripción de un producto similar o selecciona un preset guardado.
               </p>
 
-              {loadingPresets && (
-                <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets...</p>
-              )}
+              {loadingPresets && <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets…</p>}
               {!loadingPresets && savedPresets.length > 0 && (
                 <div className="mb-3">
-                  <label className={`mb-2 block text-xs font-semibold ${c.sub}`}>
-                    Mis presets guardados
-                  </label>
+                  <label className={`mb-2 block text-xs font-semibold ${c.sub}`}>Mis presets guardados</label>
                   <div className="flex flex-wrap gap-2">
                     {savedPresets.map((preset) => (
-                      <div
-                        key={preset.id}
-                        className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${c.chip}`}
-                      >
+                      <div key={preset.id} className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${c.chip}`}>
                         <button onClick={() => loadSavedPreset(preset)} className="hover:text-brand-500">
                           {preset.name}
                         </button>
-                        <button
-                          onClick={() => handleDeletePreset(preset.id)}
-                          className="text-red-500 hover:text-red-400"
-                          title="Borrar"
-                        >
+                        <button onClick={() => handleDeletePreset(preset.id)} className="text-red-500 hover:text-red-400" title="Borrar">
                           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -412,7 +433,7 @@ export default function DescriptionToolPage() {
                 value={presetText}
                 onChange={(e) => setPresetText(e.target.value)}
                 rows={4}
-                placeholder={"Ej: Sudadera Nike Vintage\nTalla M, color negro\nNUEVO SIN ETIQUETAS..."}
+                placeholder={'Ej: Sudadera Nike Vintage\nTalla M, color negro\nNUEVO SIN ETIQUETAS...'}
                 className={`w-full rounded-lg border px-3 py-2.5 font-mono text-sm outline-none transition ${c.input}`}
               />
 
@@ -429,7 +450,7 @@ export default function DescriptionToolPage() {
                   disabled={savingPreset || !presetText.trim() || !presetName.trim()}
                   className="btn-primary disabled:opacity-40 !px-4 !py-2 text-sm"
                 >
-                  {savingPreset ? 'Guardando...' : 'Guardar preset'}
+                  {savingPreset ? 'Guardando…' : 'Guardar preset'}
                 </button>
               </div>
             </div>
@@ -437,8 +458,7 @@ export default function DescriptionToolPage() {
             {/* IMAGEN */}
             <div className="mb-5">
               <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Foto del producto{' '}
-                <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
+                Foto del producto <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
               </label>
               <div
                 onClick={() => fileInputRef.current?.click()}
@@ -474,8 +494,7 @@ export default function DescriptionToolPage() {
             {/* DESCRIPCIÓN BREVE */}
             <div className="mb-5">
               <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Descripción breve / cambios{' '}
-                <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
+                Descripción breve / cambios <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
               </label>
               <textarea
                 value={shortDesc}
@@ -494,7 +513,7 @@ export default function DescriptionToolPage() {
             <div className="mb-5 grid grid-cols-2 gap-4">
               <div>
                 <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                  Precio (EUR) <span className={`font-normal ${c.faint}`}>(opcional)</span>
+                  Precio (€) <span className={`font-normal ${c.faint}`}>(opcional)</span>
                 </label>
                 <input
                   type="text"
@@ -523,9 +542,7 @@ export default function DescriptionToolPage() {
 
             {/* IDIOMAS */}
             <div className="mb-6">
-              <label className={`mb-2 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Idiomas
-              </label>
+              <label className={`mb-2 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Idiomas</label>
               <div className="flex flex-wrap gap-2">
                 {ALL_LANGUAGES.map((lang) => {
                   const active = languages.includes(lang.code);
@@ -533,9 +550,7 @@ export default function DescriptionToolPage() {
                     <button
                       key={lang.code}
                       onClick={() => toggleLanguage(lang.code)}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                        active ? c.chipActive : c.chip
-                      }`}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${active ? c.chipActive : c.chip}`}
                     >
                       {lang.label}
                     </button>
@@ -544,14 +559,12 @@ export default function DescriptionToolPage() {
               </div>
             </div>
 
-            {/* ERROR */}
             {generateError && (
               <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
                 {generateError}
               </div>
             )}
 
-            {/* BOTÓN GENERAR */}
             <button
               onClick={handleGenerate}
               disabled={generating || blocked}
@@ -563,19 +576,19 @@ export default function DescriptionToolPage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
                     <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                   </svg>
-                  Generando...
+                  Generando…
                 </span>
               ) : blocked ? (
-                'Limite alcanzado'
+                'Límite alcanzado'
               ) : (
-                'Generar descripción'
+                'Generar título y descripción'
               )}
             </button>
           </section>
 
           {/* RESULTADO */}
           <section className={`rounded-2xl border p-6 lg:col-span-2 ${c.card}`}>
-            <h2 className="mb-5 font-display text-xl font-semibold">Descripción generada</h2>
+            <h2 className="mb-5 font-display text-xl font-semibold">Resultado</h2>
 
             {!generatedDescription && !generating && (
               <div className={`flex flex-col items-center justify-center rounded-xl border border-dashed p-10 text-center ${dark ? 'border-white/10' : 'border-slate-200'}`}>
@@ -585,7 +598,7 @@ export default function DescriptionToolPage() {
                   </svg>
                 </div>
                 <p className={`text-sm ${c.sub}`}>
-                  Rellena el formulario y pulsa <strong>Generar descripción</strong> para ver el resultado aquí.
+                  Rellena el formulario y pulsa <strong>Generar</strong> para ver el título y la descripción aquí.
                 </p>
               </div>
             )}
@@ -599,42 +612,66 @@ export default function DescriptionToolPage() {
             )}
 
             {generatedDescription && (
-              <div className="space-y-4">
-                {typeof generatedDescription === 'string' ? (
-                  <div className={`whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed ${
-                    dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'
-                  }`}>
-                    {generatedDescription}
+              <div className="space-y-5">
+                {/* TÍTULOS */}
+                {generatedTitles && (
+                  <div>
+                    <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Título del anuncio</p>
+                    <div className="space-y-2">
+                      {languages.map((code) =>
+                        generatedTitles[code] ? (
+                          <div key={code} className={`flex items-center gap-2 rounded-xl border p-3 ${c.box}`}>
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-[10px] font-bold uppercase tracking-wider ${c.faint}`}>{langLabel(code)}</p>
+                              <p className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
+                                {generatedTitles[code]}
+                              </p>
+                            </div>
+                            <CopyBtn text={generatedTitles[code]} copyKey={`title-${code}`} />
+                          </div>
+                        ) : null
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  languages.map((code) => {
-                    const lang = ALL_LANGUAGES.find((l) => l.code === code);
-                    const text = generatedDescription[code];
-                    if (!text) return null;
-                    return (
-                      <div key={code} className={`rounded-xl border p-4 ${dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50'}`}>
-                        <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>
-                          {lang?.label || code}
-                        </p>
-                        <p className={`whitespace-pre-wrap text-sm leading-relaxed ${dark ? 'text-white' : 'text-ink-950'}`}>
-                          {text}
-                        </p>
-                      </div>
-                    );
-                  })
                 )}
 
+                {/* DESCRIPCIONES */}
+                <div>
+                  <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Descripción</p>
+                  <div className="space-y-3">
+                    {typeof generatedDescription === 'string' ? (
+                      <div className={`whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed ${c.box}`}>
+                        {generatedDescription}
+                      </div>
+                    ) : (
+                      languages.map((code) =>
+                        generatedDescription[code] ? (
+                          <div key={code} className={`rounded-xl border p-4 ${c.box}`}>
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className={`text-xs font-bold uppercase tracking-wider ${c.faint}`}>{langLabel(code)}</p>
+                              <CopyBtn text={generatedDescription[code]} copyKey={`desc-${code}`} />
+                            </div>
+                            <p className={`whitespace-pre-wrap text-sm leading-relaxed ${dark ? 'text-white' : 'text-ink-950'}`}>
+                              {generatedDescription[code]}
+                            </p>
+                          </div>
+                        ) : null
+                      )
+                    )}
+                  </div>
+                </div>
+
                 <button
-                  onClick={copyToClipboard}
+                  onClick={copyAll}
                   className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition ${
-                    copied
+                    copied === 'all'
                       ? 'bg-brand-500 text-white'
                       : dark
                         ? 'bg-white text-ink-950 hover:bg-slate-100'
                         : 'bg-ink-950 text-white hover:bg-ink-900'
                   }`}
                 >
-                  {copied ? (
+                  {copied === 'all' ? (
                     <>
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -646,7 +683,7 @@ export default function DescriptionToolPage() {
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      Copiar descripción
+                      Copiar todo (títulos + descripciones)
                     </>
                   )}
                 </button>

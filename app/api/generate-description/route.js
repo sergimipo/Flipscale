@@ -1,157 +1,131 @@
+function extractJson(text) {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req) {
   try {
-    const { imageBase64, shortDesc, price, condition, languages, presetText } = await req.json();
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    const { imageBase64, shortDesc, price, condition, presetText } = await req.json();
 
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     if (!OPENROUTER_API_KEY) {
-      return Response.json({ error: "Falta la clave de API de OpenRouter" }, { status: 500 });
+      return Response.json({ error: 'Falta la clave de API de OpenRouter' }, { status: 500 });
     }
 
-    const MAX_RETRIES = 5;
+    const jsonFormat = `
+FORMATO DE RESPUESTA OBLIGATORIO: devuelve ÚNICAMENTE un JSON válido, sin markdown y sin explicaciones, con esta estructura exacta:
+{
+  "titles": { "es": "título", "en": "title", "fr": "titre" },
+  "descriptions": { "es": "descripción", "en": "description", "fr": "description" }
+}`;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      let prompt = "";
+    const titleRules = `
+REGLAS DE LOS TÍTULOS:
+- Máximo 60 caracteres, sin emojis ni signos de exclamación.
+- Incluye marca, modelo, color y talla cuando se conozcan.
+- Ejemplo: "Sudadera Nike Vintage Negra Talla M"`;
 
-      if (presetText && presetText.trim().length > 0) {
-        prompt = `Eres un editor de texto estricto. Tienes una DESCRIPCIÓN BASE y unos CAMBIOS que el usuario quiere aplicar.
+    const descRules = `
+REGLAS DE LAS DESCRIPCIONES (dentro del string de cada idioma):
+- Primera línea: el estado en MAYÚSCULAS.
+- Después, exactamente 3 viñetas con el símbolo ✔.
+- Última línea: "💰 Precio: X €" si hay precio; si no, omítela.
+- Usa \\n para los saltos de línea dentro de cada string.`;
 
-REGLAS ABSOLUTAS:
-1. Reescribe la DESCRIPCIÓN BASE aplicando los CAMBIOS.
-2. Mantén EXACTAMENTE el mismo formato, saltos de línea y estructura.
-3. Traduce los cambios a los 3 idiomas de forma coherente con la base.
-4. Si los cambios incluyen un nuevo precio, actualízalo en los 3 idiomas. Si no, mantén el precio de la base.
-5. Si los cambios incluyen un nuevo estado, actualízalo en los 3 idiomas. Si no, mantén el estado de la base.
-6. NO añadas texto extra, introducciones ni explicaciones.
+    let prompt = '';
+    if (presetText && presetText.trim().length > 0) {
+      prompt = `Eres un editor estricto de anuncios de segunda mano. Tienes una DESCRIPCIÓN BASE y unos CAMBIOS.
+Reescribe la base aplicando los cambios y devuelve títulos y descripciones en es/en/fr.
+Mantén el mismo formato, estructura y saltos de línea de la base.
+Si los cambios incluyen precio o estado nuevos, actualízalos en los 3 idiomas; si no, mantén los de la base.
+Adapta también el título si los cambios lo requieren (color, talla, modelo).
+${titleRules}
+${descRules}
+${jsonFormat}
 
 DESCRIPCIÓN BASE:
 ${presetText}
 
-CAMBIOS A APLICAR:
-- Descripción de cambios: ${shortDesc || '(sin cambios específicos)'}
+CAMBIOS:
+- Descripción: ${shortDesc || '(sin cambios específicos)'}
 - Precio: ${price || '(mantener el de la base)'}
 - Estado: ${condition || '(mantener el de la base)'}
-${imageBase64 ? '- Analiza la imagen para ver los detalles visuales de los cambios.' : ''}
-
-Genera la descripción editada AHORA.`;
-      } else {
-        prompt = `Eres un sistema estricto de formateo de texto. Tu ÚNICA tarea es devolver el texto EXACTAMENTE con este formato.
-
-REGLAS ABSOLUTAS:
-1. Empieza cada sección con la bandera del idioma seguida del nombre del idioma.
-2. El estado debe ir SIEMPRE en MAYÚSCULAS.
-3. Usa exactamente 3 viñetas con el símbolo de check.
-4. Separa cada idioma con una línea de guiones.
-
-FORMATO EXACTO:
-
-🇪🇸 Español
-[Título]
-[ESTADO EN MAYÚSCULAS]
-[Beneficios]
-✔ [Caract. 1]
-✔ [Caract. 2]
-✔ [Caract. 3]
-💰 Precio: ${price || '___'} €
-────────
-
-🇧 English
-[Title]
-[CONDITION IN UPPERCASE]
-[Benefits]
-✔ [Feature 1]
-✔ [Feature 2]
-✔ [Feature 3]
-💰 Price: €${price || '___'}
-────────
-
-🇷 Français
-[Titre]
-[ÉTAT EN MAJUSCULES]
-[Bénéfices]
-✔ [Caract. 1]
-✔ [Caract. 2]
-✔ [Caract. 3]
-💰 Prix : ${price || '___'} €
+${imageBase64 ? '- Analiza la imagen para ajustar los detalles visuales.' : ''}`;
+    } else {
+      prompt = `Eres un experto en ventas de segunda mano en Vinted, Wallapop y Etsy.
+Genera un título atractivo y una descripción completa en es/en/fr a partir de los datos${imageBase64 ? ' y de la imagen' : ''}.
+${titleRules}
+${descRules}
+${jsonFormat}
 
 DATOS:
-- Descripción: ${shortDesc}
+- Descripción: ${shortDesc || '(sin datos)'}
 - Precio: ${price || '(sin especificar)'}
-- Estado: ${condition || '(sin especificar)'}
-${imageBase64 ? '- Analiza la imagen.' : ''}`;
-      }
+- Estado: ${condition || '(sin especificar)'}`;
+    }
 
+    const MAX_RETRIES = 5;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
           headers: {
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": "https://flipscale.com",
-            "X-Title": "FlipScale",
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            'HTTP-Referer': 'https://flipscale.com',
+            'X-Title': 'FlipScale',
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: "openrouter/free",
+            model: 'openrouter/free',
             messages: [
-              { 
-                role: "system", 
-                content: "Eres un sistema estricto. Devuelves ÚNICAMENTE el texto formateado, sin explicaciones." 
+              {
+                role: 'system',
+                content: 'Devuelves ÚNICAMENTE JSON válido, sin markdown ni explicaciones.',
               },
-              { 
-                role: "user", 
+              {
+                role: 'user',
                 content: [
-                  { type: "text", text: prompt },
-                  ...(imageBase64 ? [{ type: "image_url", image_url: { url: imageBase64 } }] : [])
-                ]
-              }
+                  { type: 'text', text: prompt },
+                  ...(imageBase64 ? [{ type: 'image_url', image_url: { url: imageBase64 } }] : []),
+                ],
+              },
             ],
             temperature: 0.1,
           }),
         });
 
         const data = await response.json();
-        
         if (!response.ok) {
           throw new Error(data.error?.message || `Error: ${response.status}`);
         }
-        if (data.error) {
-          throw new Error(data.error.message);
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error('La IA no devolvió contenido.');
+
+        const parsed = extractJson(content);
+        if (parsed && parsed.descriptions) {
+          return Response.json({
+            titles: parsed.titles || null,
+            description: parsed.descriptions,
+          });
         }
-
-        const description = data.choices?.[0]?.message?.content;
-        if (!description) {
-          throw new Error("La IA no devolvió contenido.");
-        }
-
-        // ✅ VALIDACIÓN MÍNIMA: solo rechazar si es claramente un error
-        const isSafetyMessage = description.toLowerCase().includes('user safety');
-        const isTooShort = description.length < 30;
-        const isErrorMessage = description.toLowerCase().includes('error') || description.toLowerCase().includes('no puedo');
-
-        if (isSafetyMessage || isTooShort || isErrorMessage) {
-          console.warn(`Intento ${attempt}/${MAX_RETRIES}: respuesta inválida (safety=${isSafetyMessage}, corta=${isTooShort}, error=${isErrorMessage})`);
-          if (attempt < MAX_RETRIES) {
-            continue;
-          }
-        } else {
-          // ✅ Respuesta válida
-          const cleanDescription = description.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '').trim();
-          return Response.json({ description: cleanDescription });
-        }
-
+        console.warn(`Intento ${attempt}/${MAX_RETRIES}: JSON no válido`);
       } catch (error) {
         console.error(`Error en intento ${attempt}/${MAX_RETRIES}:`, error.message);
-        if (attempt < MAX_RETRIES) {
-          continue;
-        }
       }
     }
 
-    return Response.json({ 
-      error: `La IA no pudo generar una descripción válida tras ${MAX_RETRIES} intentos. Por favor, inténtalo de nuevo.` 
-    }, { status: 503 });
-
+    return Response.json(
+      { error: 'La IA no pudo generar una respuesta válida tras varios intentos. Inténtalo de nuevo.' },
+      { status: 503 }
+    );
   } catch (error) {
-    console.error("ERROR GLOBAL:", error.message);
+    console.error('ERROR GLOBAL:', error.message);
     return Response.json({ error: `Error de IA: ${error.message}` }, { status: 500 });
   }
 }
