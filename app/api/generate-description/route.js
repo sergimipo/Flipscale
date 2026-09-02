@@ -11,40 +11,48 @@ function extractJson(text) {
 
 export async function POST(req) {
   try {
-    const { imageBase64, shortDesc, price, condition, presetText } = await req.json();
+    const { imageBase64, shortDesc, price, condition, languages, presetText } = await req.json();
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     if (!OPENROUTER_API_KEY) {
       return Response.json({ error: 'Falta la clave de API de OpenRouter' }, { status: 500 });
     }
 
+    const langs = Array.isArray(languages) && languages.length > 0 ? languages : ['es', 'en', 'fr'];
+    const langNames = { es: '🇪🇸 Español', en: '🇬🇧 English', fr: '🇫🇷 Français' };
+    const langList = langs.map((l) => langNames[l] || l).join(', ');
+
     const jsonFormat = `
-FORMATO DE RESPUESTA OBLIGATORIO: devuelve ÚNICAMENTE un JSON válido, sin markdown y sin explicaciones, con esta estructura exacta:
+FORMATO DE RESPUESTA OBLIGATORIO: devuelve ÚNICAMENTE un JSON válido, sin markdown y sin explicaciones:
 {
-  "titles": { "es": "título", "en": "title", "fr": "titre" },
-  "descriptions": { "es": "descripción", "en": "description", "fr": "description" }
+  "title": "título del anuncio",
+  "description": "texto único de la descripción"
 }`;
 
     const titleRules = `
-REGLAS DE LOS TÍTULOS:
+REGLAS DEL TÍTULO:
+- SIEMPRE en español, aunque la descripción incluya otros idiomas.
 - Máximo 60 caracteres, sin emojis ni signos de exclamación.
 - Incluye marca, modelo, color y talla cuando se conozcan.
 - Ejemplo: "Sudadera Nike Vintage Negra Talla M"`;
 
     const descRules = `
-REGLAS DE LAS DESCRIPCIONES (dentro del string de cada idioma):
-- Primera línea: el estado en MAYÚSCULAS.
+REGLAS DE LA DESCRIPCIÓN (un ÚNICO string que contiene los idiomas: ${langList}):
+- Un bloque por idioma, en este orden: ${langList}.
+- Cada bloque empieza con su bandera y nombre (${langNames.es} / ${langNames.en} / ${langNames.fr}).
+- Primera línea del bloque: el estado en MAYÚSCULAS.
 - Después, exactamente 3 viñetas con el símbolo ✔.
-- Última línea: "💰 Precio: X €" si hay precio; si no, omítela.
-- Usa \\n para los saltos de línea dentro de cada string.`;
+- Última línea del bloque con el precio en el idioma correspondiente: "💰 Precio: X €" / "💰 Price: €X" / "💰 Prix : X €" (omítela si no hay precio).
+- Separa los bloques de idioma con una línea de guiones: ────────
+- Usa \\n para los saltos de línea dentro del string.`;
 
     let prompt = '';
     if (presetText && presetText.trim().length > 0) {
       prompt = `Eres un editor estricto de anuncios de segunda mano. Tienes una DESCRIPCIÓN BASE y unos CAMBIOS.
-Reescribe la base aplicando los cambios y devuelve títulos y descripciones en es/en/fr.
+Reescribe la base aplicando los cambios y devuelve el título (siempre en español) y la descripción en un único texto.
 Mantén el mismo formato, estructura y saltos de línea de la base.
-Si los cambios incluyen precio o estado nuevos, actualízalos en los 3 idiomas; si no, mantén los de la base.
-Adapta también el título si los cambios lo requieren (color, talla, modelo).
+Si los cambios incluyen precio o estado nuevos, actualízalos en todos los idiomas; si no, mantén los de la base.
+Adapta el título en español si los cambios lo requieren (color, talla, modelo).
 ${titleRules}
 ${descRules}
 ${jsonFormat}
@@ -59,7 +67,7 @@ CAMBIOS:
 ${imageBase64 ? '- Analiza la imagen para ajustar los detalles visuales.' : ''}`;
     } else {
       prompt = `Eres un experto en ventas de segunda mano en Vinted, Wallapop y Etsy.
-Genera un título atractivo y una descripción completa en es/en/fr a partir de los datos${imageBase64 ? ' y de la imagen' : ''}.
+Genera el título del anuncio (siempre en español) y una descripción única en los idiomas: ${langList}, a partir de los datos${imageBase64 ? ' y de la imagen' : ''}.
 ${titleRules}
 ${descRules}
 ${jsonFormat}
@@ -108,10 +116,10 @@ DATOS:
         if (!content) throw new Error('La IA no devolvió contenido.');
 
         const parsed = extractJson(content);
-        if (parsed && parsed.descriptions) {
+        if (parsed && parsed.description) {
           return Response.json({
-            titles: parsed.titles || null,
-            description: parsed.descriptions,
+            title: parsed.title || null,
+            description: parsed.description,
           });
         }
         console.warn(`Intento ${attempt}/${MAX_RETRIES}: JSON no válido`);

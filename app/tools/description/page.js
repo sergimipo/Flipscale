@@ -44,7 +44,7 @@ export default function DescriptionToolPage() {
   const [presetText, setPresetText] = useState('');
 
   const [generating, setGenerating] = useState(false);
-  const [generatedTitles, setGeneratedTitles] = useState(null);
+  const [generatedTitle, setGeneratedTitle] = useState(null);
   const [generatedDescription, setGeneratedDescription] = useState(null);
   const [generateError, setGenerateError] = useState('');
   const [copied, setCopied] = useState(null);
@@ -251,7 +251,7 @@ export default function DescriptionToolPage() {
     }
     setGenerating(true);
     setGenerateError('');
-    setGeneratedTitles(null);
+    setGeneratedTitle(null);
     setGeneratedDescription(null);
     try {
       const res = await fetch('/api/generate-description', {
@@ -268,7 +268,7 @@ export default function DescriptionToolPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
-      setGeneratedTitles(data.titles || null);
+      setGeneratedTitle(data.title || null);
       setGeneratedDescription(data.description);
       await registerUsage();
     } catch (err) {
@@ -279,8 +279,6 @@ export default function DescriptionToolPage() {
     }
   }
 
-  const langLabel = (code) => ALL_LANGUAGES.find((l) => l.code === code)?.label || code;
-
   function copyText(text, key) {
     navigator.clipboard.writeText(text);
     setCopied(key);
@@ -290,23 +288,13 @@ export default function DescriptionToolPage() {
   function copyAll() {
     if (!generatedDescription) return;
     const parts = [];
-    if (generatedTitles) {
-      languages.forEach((code) => {
-        if (generatedTitles[code]) parts.push(`${langLabel(code)}: ${generatedTitles[code]}`);
-      });
-      parts.push('────────');
-    }
-    if (typeof generatedDescription === 'string') {
-      parts.push(generatedDescription);
-    } else {
-      languages.forEach((code) => {
-        if (generatedDescription[code]) parts.push(`${langLabel(code)}\n${generatedDescription[code]}`);
-      });
-    }
+    if (generatedTitle) parts.push(generatedTitle);
+    parts.push('────────');
+    parts.push(generatedDescription);
     copyText(parts.join('\n\n'), 'all');
   }
 
-  const CopyBtn = ({ text, copyKey, small }) => (
+  const CopyBtn = ({ text, copyKey }) => (
     <button
       onClick={() => copyText(text, copyKey)}
       className={`shrink-0 rounded-lg p-2 transition ${
@@ -315,7 +303,7 @@ export default function DescriptionToolPage() {
           : dark
             ? 'text-slate-400 hover:bg-white/5 hover:text-white'
             : 'text-slate-500 hover:bg-slate-100'
-      } ${small ? '' : ''}`}
+      }`}
       title="Copiar"
     >
       {copied === copyKey ? (
@@ -368,8 +356,8 @@ export default function DescriptionToolPage() {
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold">Descripciones IA</h1>
           <p className={`mt-2 max-w-2xl ${c.sub}`}>
-            La IA analiza tu producto y genera el título del anuncio y la descripción completa
-            en varios idiomas, listos para copiar y pegar en Vinted, Wallapop o Etsy.
+            La IA genera el título del anuncio en español y la descripción completa en un solo
+            texto con los idiomas que elijas, listo para copiar y pegar en Vinted, Wallapop o Etsy.
           </p>
         </div>
 
@@ -542,7 +530,9 @@ export default function DescriptionToolPage() {
 
             {/* IDIOMAS */}
             <div className="mb-6">
-              <label className={`mb-2 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Idiomas</label>
+              <label className={`mb-2 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
+                Idiomas dentro de la descripción
+              </label>
               <div className="flex flex-wrap gap-2">
                 {ALL_LANGUAGES.map((lang) => {
                   const active = languages.includes(lang.code);
@@ -613,51 +603,29 @@ export default function DescriptionToolPage() {
 
             {generatedDescription && (
               <div className="space-y-5">
-                {/* TÍTULOS */}
-                {generatedTitles && (
+                {/* TÍTULO (siempre español) */}
+                {generatedTitle && (
                   <div>
                     <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Título del anuncio</p>
-                    <div className="space-y-2">
-                      {languages.map((code) =>
-                        generatedTitles[code] ? (
-                          <div key={code} className={`flex items-center gap-2 rounded-xl border p-3 ${c.box}`}>
-                            <div className="min-w-0 flex-1">
-                              <p className={`text-[10px] font-bold uppercase tracking-wider ${c.faint}`}>{langLabel(code)}</p>
-                              <p className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                                {generatedTitles[code]}
-                              </p>
-                            </div>
-                            <CopyBtn text={generatedTitles[code]} copyKey={`title-${code}`} />
-                          </div>
-                        ) : null
-                      )}
+                    <div className={`flex items-center gap-2 rounded-xl border p-3 ${c.box}`}>
+                      <p className={`min-w-0 flex-1 text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
+                        {generatedTitle}
+                      </p>
+                      <CopyBtn text={generatedTitle} copyKey="title" />
                     </div>
                   </div>
                 )}
 
-                {/* DESCRIPCIONES */}
+                {/* DESCRIPCIÓN ÚNICA */}
                 <div>
                   <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Descripción</p>
-                  <div className="space-y-3">
-                    {typeof generatedDescription === 'string' ? (
-                      <div className={`whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed ${c.box}`}>
-                        {generatedDescription}
-                      </div>
-                    ) : (
-                      languages.map((code) =>
-                        generatedDescription[code] ? (
-                          <div key={code} className={`rounded-xl border p-4 ${c.box}`}>
-                            <div className="mb-2 flex items-center justify-between">
-                              <p className={`text-xs font-bold uppercase tracking-wider ${c.faint}`}>{langLabel(code)}</p>
-                              <CopyBtn text={generatedDescription[code]} copyKey={`desc-${code}`} />
-                            </div>
-                            <p className={`whitespace-pre-wrap text-sm leading-relaxed ${dark ? 'text-white' : 'text-ink-950'}`}>
-                              {generatedDescription[code]}
-                            </p>
-                          </div>
-                        ) : null
-                      )
-                    )}
+                  <div className={`rounded-xl border p-4 ${c.box}`}>
+                    <div className="mb-2 flex justify-end">
+                      <CopyBtn text={generatedDescription} copyKey="desc" />
+                    </div>
+                    <p className={`whitespace-pre-wrap text-sm leading-relaxed ${dark ? 'text-white' : 'text-ink-950'}`}>
+                      {generatedDescription}
+                    </p>
                   </div>
                 </div>
 
@@ -683,7 +651,7 @@ export default function DescriptionToolPage() {
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      Copiar todo (títulos + descripciones)
+                      Copiar todo
                     </>
                   )}
                 </button>
