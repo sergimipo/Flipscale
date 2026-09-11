@@ -29,6 +29,14 @@ body {
   main {
     padding-bottom: 8rem !important;
   }
+
+  /* Evita el zoom automático de iOS al escribir en campos */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
 }
 
 @keyframes fade-up {
