@@ -114,6 +114,15 @@ export default function DescriptionToolPage() {
     box: dark ? 'border-white/10 bg-ink-800/50' : 'border-slate-200 bg-slate-50',
   };
 
+  const bigBtn = (isCopied) =>
+    `flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold transition ${
+      isCopied
+        ? 'bg-brand-500 text-white'
+        : dark
+          ? 'bg-white text-ink-950 hover:bg-slate-200'
+          : 'bg-ink-950 text-white hover:bg-ink-800'
+    }`;
+
   const registerUsage = async () => {
     if (!userId || isPro) return;
     try {
@@ -273,7 +282,10 @@ export default function DescriptionToolPage() {
       await registerUsage();
     } catch (err) {
       console.error('Error completo:', err);
-      setGenerateError(err.message || 'No se pudo generar la descripción.');
+      const msg = /load failed|failed to fetch|network/i.test(err.message || '')
+        ? 'La conexión con la IA falló (timeout). Inténtalo de nuevo.'
+        : err.message || 'No se pudo generar la descripción.';
+      setGenerateError(msg);
     } finally {
       setGenerating(false);
     }
@@ -284,39 +296,6 @@ export default function DescriptionToolPage() {
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   }
-
-  function copyAll() {
-    if (!generatedDescription) return;
-    const parts = [];
-    if (generatedTitle) parts.push(generatedTitle);
-    parts.push('────────');
-    parts.push(generatedDescription);
-    copyText(parts.join('\n\n'), 'all');
-  }
-
-  const CopyBtn = ({ text, copyKey }) => (
-    <button
-      onClick={() => copyText(text, copyKey)}
-      className={`shrink-0 rounded-lg p-2 transition ${
-        copied === copyKey
-          ? 'bg-brand-500 text-white'
-          : dark
-            ? 'text-slate-400 hover:bg-white/5 hover:text-white'
-            : 'text-slate-500 hover:bg-slate-100'
-      }`}
-      title="Copiar"
-    >
-      {copied === copyKey ? (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-      )}
-    </button>
-  );
 
   return (
     <div className={`min-h-screen ${c.page}`}>
@@ -357,7 +336,7 @@ export default function DescriptionToolPage() {
           <h1 className="font-display text-3xl font-bold">Descripciones IA</h1>
           <p className={`mt-2 max-w-2xl ${c.sub}`}>
             La IA genera el título del anuncio en español y la descripción completa en un solo
-            texto con los idiomas que elijas, listo para copiar y pegar en Vinted, Wallapop o Etsy.
+            texto con los idiomas que elijas. Copia cada uno por separado y pégalos en su campo de Vinted.
           </p>
         </div>
 
@@ -603,58 +582,61 @@ export default function DescriptionToolPage() {
 
             {generatedDescription && (
               <div className="space-y-5">
-                {/* TÍTULO (siempre español) */}
+                {/* TÍTULO */}
                 {generatedTitle && (
                   <div>
                     <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Título del anuncio</p>
-                    <div className={`flex items-center gap-2 rounded-xl border p-3 ${c.box}`}>
-                      <p className={`min-w-0 flex-1 text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
+                    <div className={`rounded-xl border p-3 ${c.box}`}>
+                      <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
                         {generatedTitle}
                       </p>
-                      <CopyBtn text={generatedTitle} copyKey="title" />
                     </div>
+                    <button onClick={() => copyText(generatedTitle, 'title')} className={`${bigBtn(copied === 'title')} mt-2`}>
+                      {copied === 'title' ? (
+                        <>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          ¡Título copiado!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          Copiar título
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
 
-                {/* DESCRIPCIÓN ÚNICA */}
+                {/* DESCRIPCIÓN */}
                 <div>
                   <p className={`mb-2 text-xs font-bold uppercase tracking-wider ${c.faint}`}>Descripción</p>
                   <div className={`rounded-xl border p-4 ${c.box}`}>
-                    <div className="mb-2 flex justify-end">
-                      <CopyBtn text={generatedDescription} copyKey="desc" />
-                    </div>
                     <p className={`whitespace-pre-wrap text-sm leading-relaxed ${dark ? 'text-white' : 'text-ink-950'}`}>
                       {generatedDescription}
                     </p>
                   </div>
+                  <button onClick={() => copyText(generatedDescription, 'desc')} className={`${bigBtn(copied === 'desc')} mt-2`}>
+                    {copied === 'desc' ? (
+                      <>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        ¡Descripción copiada!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copiar descripción
+                      </>
+                    )}
+                  </button>
                 </div>
-
-                <button
-                  onClick={copyAll}
-                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition ${
-                    copied === 'all'
-                      ? 'bg-brand-500 text-white'
-                      : dark
-                        ? 'bg-white text-ink-950 hover:bg-slate-100'
-                        : 'bg-ink-950 text-white hover:bg-ink-900'
-                  }`}
-                >
-                  {copied === 'all' ? (
-                    <>
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      Copiado
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Copiar todo
-                    </>
-                  )}
-                </button>
               </div>
             )}
           </section>
