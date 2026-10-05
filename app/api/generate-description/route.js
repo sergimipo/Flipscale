@@ -3,10 +3,8 @@ export const maxDuration = 60;
 function extractJson(text) {
   if (!text || typeof text !== 'string') return null;
   
-  // 1. Limpiar markdown
   let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   
-  // 2. Intentar parseo directo
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   
@@ -22,7 +20,6 @@ function extractJson(text) {
     }
   }
   
-  // 3. Fallback Regex
   const titleMatch = clean.match(/"title"\s*:\s*"([^"]*)"/i);
   const descMatch = clean.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
   
@@ -34,6 +31,11 @@ function extractJson(text) {
   }
   
   return null;
+}
+
+// Función para hacer sleep
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export async function POST(req) {
@@ -56,7 +58,6 @@ export async function POST(req) {
     const langNames = { es: 'Español', en: 'Inglés', fr: 'Francés' };
     const langList = langs.map(l => langNames[l] || l).join(', ');
 
-    // PROMPT OPTIMIZADO PARA GEMMA 4
     const systemPrompt = `Eres un generador de anuncios de segunda mano.
 Devuelve SOLO un objeto JSON válido, sin markdown ni explicaciones.
 Formato exacto: {"title": "string", "description": "string"}
@@ -73,117 +74,125 @@ Estado: ${condition || 'No especificado'}
 
 Si faltan datos, infiérelos de forma coherente.`;
 
-    const MAX_RETRIES = 2;
-    
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      console.log(`\n=== Intento ${attempt}/${MAX_RETRIES} ===`);
+    // Lista de modelos gratuitos en orden de prioridad
+    const models = [
+      'google/gemma-4-26b-a4b-it:free',
+      'qwen/qwen-2-7b-instruct:free',
+      'mistralai/mistral-7b-instruct:free'
+    ];
+
+    const MAX_RETRIES_PER_MODEL = 3;
+    const BASE_DELAY = 2000; // 2 segundos
+
+    for (const model of models) {
+      console.log(`\n=== Probando modelo: ${model} ===`);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('Timeout alcanzado');
-        controller.abort();
-      }, 40000); // 40 segundos
-      
-      try {
-        const messages = [
-          { role: 'system', content: systemPrompt },
-        ];
+      for (let attempt = 1; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
+        console.log(`Intento ${attempt}/${MAX_RETRIES_PER_MODEL}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 40000);
+        
+        try {
+          const messages = [
+            { role: 'system', content: systemPrompt },
+          ];
 
-        // Si hay imagen, usar formato multimodal (Gemma 4 lo soporta)
-        if (imageBase64) {
-          messages.push({
-            role: 'user',
-            content: [
-              { type: 'text', text: userContent },
-              { type: 'image_url', image_url: { url: imageBase64 } }
-            ]
+          if (imageBase64) {
+            messages.push({
+              role: 'user',
+              content: [
+                { type: 'text', text: userContent },
+                { type: 'image_url', image_url: { url: imageBase64 } }
+              ]
+            });
+          } else {
+            messages.push({
+              role: 'user',
+              content: userContent
+            });
+          }
+
+          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://flipscale.com',
+              'X-Title': 'FlipScale',
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: model,
+              messages: messages,
+              temperature: 0.3,
+              max_tokens: 1500,
+            }),
           });
-        } else {
-          messages.push({
-            role: 'user',
-            content: userContent
-          });
-        }
 
-        console.log('Enviando a OpenRouter con modelo: google/gemma-4-26b-a4b-it:free');
-        
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://flipscale.com',
-            'X-Title': 'FlipScale',
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            model: 'google/gemma-4-26b-a4b-it:free',
-            messages: messages,
-            temperature: 0.3,
-            max_tokens: 1500,
-          }),
-        });
+          clearTimeout(timeoutId);
 
-        clearTimeout(timeoutId);
+          console.log('Status:', response.status);
 
-        console.log('Status:', response.status);
+          // Si es 429, esperar y reintentar con backoff exponencial
+          if (response.status === 429) {
+            const delay = BASE_DELAY * Math.pow(2, attempt - 1);
+            console.log(`Rate limited. Esperando ${delay}ms antes de reintentar...`);
+            await sleep(delay);
+            continue; // Reintentar con el mismo modelo
+          }
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error('Error API:', errText);
-          return Response.json({ 
-            error: `API Error: ${response.status}`, 
-            rawResponse: errText 
-          }, { status: 500 });
-        }
+          if (!response.ok) {
+            const errText = await response.text();
+            console.error('Error API:', errText);
+            // Si es otro error, probar siguiente modelo
+            break;
+          }
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        
-        console.log('\n=== CONTENIDO DE LA IA ===');
-        console.log(content);
-        console.log('=== FIN CONTENIDO ===\n');
-
-        if (!content) {
-          return Response.json({ 
-            error: 'La IA no devolvió contenido', 
-            rawResponse: JSON.stringify(data) 
-          }, { status: 500 });
-        }
-
-        const parsed = extractJson(content);
-        
-        if (parsed && parsed.title && parsed.description) {
-          console.log('✅ JSON válido extraído');
-          console.log('Title:', parsed.title);
-          console.log('Description length:', parsed.description.length);
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
           
-          return Response.json({
-            title: String(parsed.title).trim(),
-            description: String(parsed.description).trim()
-          });
-        } else {
-          console.warn('❌ No se pudo extraer JSON válido');
-        }
+          console.log('\n=== CONTENIDO DE LA IA ===');
+          console.log(content);
+          console.log('=== FIN CONTENIDO ===\n');
 
-      } catch (error) {
-        console.error(`\n❌ Error en intento ${attempt}:`, error.message);
-        if (error.name === 'AbortError') {
-          console.error('La petición fue abortada por timeout');
+          if (!content) {
+            console.warn('La IA no devolvió contenido');
+            continue;
+          }
+
+          const parsed = extractJson(content);
+          
+          if (parsed && parsed.title && parsed.description) {
+            console.log('✅ JSON válido extraído');
+            console.log('Title:', parsed.title);
+            console.log('Description length:', parsed.description.length);
+            
+            return Response.json({
+              title: String(parsed.title).trim(),
+              description: String(parsed.description).trim()
+            });
+          } else {
+            console.warn('❌ No se pudo extraer JSON válido');
+          }
+
+        } catch (error) {
+          console.error(`Error en intento ${attempt}:`, error.message);
+          if (error.name === 'AbortError') {
+            console.error('Timeout alcanzado');
+          }
+          if (attempt === MAX_RETRIES_PER_MODEL) {
+            console.warn(`Agotados intentos para ${model}, probando siguiente...`);
+          }
+        } finally {
+          clearTimeout(timeoutId);
         }
-        if (attempt === MAX_RETRIES) {
-          return Response.json({ 
-            error: `Error: ${error.message}`,
-            rawResponse: error.message
-          }, { status: 500 });
-        }
-      } finally {
-        clearTimeout(timeoutId);
       }
     }
 
+    console.log('\n=== TODOS LOS MODELOS FALLARON ===');
     return Response.json(
-      { error: 'La IA no pudo generar una respuesta válida tras varios intentos.' },
+      { error: 'La IA no pudo generar una respuesta válida. Los modelos gratuitos están saturados. Inténtalo en unos minutos.' },
       { status: 503 }
     );
 
