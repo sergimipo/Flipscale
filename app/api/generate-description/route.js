@@ -33,7 +33,6 @@ function extractJson(text) {
   return null;
 }
 
-// Función para hacer sleep
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -45,9 +44,6 @@ export async function POST(req) {
 
     console.log('=== API START ===');
     console.log('shortDesc:', shortDesc);
-    console.log('price:', price);
-    console.log('condition:', condition);
-    console.log('hasImage:', !!imageBase64);
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     if (!OPENROUTER_API_KEY) {
@@ -63,55 +59,42 @@ Devuelve SOLO un objeto JSON válido, sin markdown ni explicaciones.
 Formato exacto: {"title": "string", "description": "string"}
 
 REGLAS:
-- title: Español, máximo 60 caracteres, incluye marca/modelo/color/talla si los conoces
+- title: Español, máximo 60 caracteres
 - description: Un solo string con saltos de línea \\n, en idiomas ${langList}. 
   Cada idioma separado por ───────, con estado en MAYÚSCULAS, 3 viñetas ✔ y precio al final.`;
 
     let userContent = `Genera un anuncio profesional para:
 Producto: ${shortDesc || presetText || 'No especificado'}
 Precio: ${price || 'No especificado'}
-Estado: ${condition || 'No especificado'}
+Estado: ${condition || 'No especificado'}`;
 
-Si faltan datos, infiérelos de forma coherente.`;
-
-    // Lista de modelos gratuitos en orden de prioridad
+    // MODELOS DISPONIBLES en orden de prioridad
     const models = [
-      'google/gemma-4-26b-a4b-it:free',
-      'qwen/qwen-2-7b-instruct:free',
-      'mistralai/mistral-7b-instruct:free'
+      'google/gemma-4-31b-it:free',           // El más potente (31B)
+      'google/gemma-4-26b-a4b-it:free',       // Gemma 4 A4B (26B)
+      'nvidia/nemotron-3-nano-omni:free',     // Nemotron 30B multimodal
+      'liquid/lfm2.5-2.6b:free',              // LiquidAI 2.6B (más estable)
+      'openrouter/free'                       // Router automático (último recurso)
     ];
 
-    const MAX_RETRIES_PER_MODEL = 3;
-    const BASE_DELAY = 2000; // 2 segundos
+    const MAX_RETRIES_PER_MODEL = 2;
+    const BASE_DELAY = 3000; // 3 segundos
 
     for (const model of models) {
-      console.log(`\n=== Probando modelo: ${model} ===`);
+      console.log(`\n=== Probando: ${model} ===`);
       
       for (let attempt = 1; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
-        console.log(`Intento ${attempt}/${MAX_RETRIES_PER_MODEL}`);
-        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 40000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
         
         try {
           const messages = [
             { role: 'system', content: systemPrompt },
+            { role: 'user', content: imageBase64 
+              ? [{ type: 'text', text: userContent }, { type: 'image_url', image_url: { url: imageBase64 } }]
+              : userContent
+            }
           ];
-
-          if (imageBase64) {
-            messages.push({
-              role: 'user',
-              content: [
-                { type: 'text', text: userContent },
-                { type: 'image_url', image_url: { url: imageBase64 } }
-              ]
-            });
-          } else {
-            messages.push({
-              role: 'user',
-              content: userContent
-            });
-          }
 
           const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -132,72 +115,52 @@ Si faltan datos, infiérelos de forma coherente.`;
 
           clearTimeout(timeoutId);
 
-          console.log('Status:', response.status);
-
-          // Si es 429, esperar y reintentar con backoff exponencial
           if (response.status === 429) {
             const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-            console.log(`Rate limited. Esperando ${delay}ms antes de reintentar...`);
+            console.log(`⏳ Rate limited (${model}). Esperando ${delay}ms...`);
             await sleep(delay);
-            continue; // Reintentar con el mismo modelo
+            continue;
           }
 
           if (!response.ok) {
             const errText = await response.text();
-            console.error('Error API:', errText);
-            // Si es otro error, probar siguiente modelo
-            break;
+            console.error(`❌ Error ${model}:`, errText);
+            break; // Probar siguiente modelo
           }
 
           const data = await response.json();
           const content = data.choices?.[0]?.message?.content;
           
-          console.log('\n=== CONTENIDO DE LA IA ===');
-          console.log(content);
-          console.log('=== FIN CONTENIDO ===\n');
-
-          if (!content) {
-            console.warn('La IA no devolvió contenido');
-            continue;
-          }
+          console.log(`✅ ${model} respondió`);
+          
+          if (!content) continue;
 
           const parsed = extractJson(content);
           
           if (parsed && parsed.title && parsed.description) {
-            console.log('✅ JSON válido extraído');
-            console.log('Title:', parsed.title);
-            console.log('Description length:', parsed.description.length);
-            
+            console.log('✅ JSON válido');
             return Response.json({
               title: String(parsed.title).trim(),
               description: String(parsed.description).trim()
             });
-          } else {
-            console.warn('❌ No se pudo extraer JSON válido');
           }
 
         } catch (error) {
-          console.error(`Error en intento ${attempt}:`, error.message);
-          if (error.name === 'AbortError') {
-            console.error('Timeout alcanzado');
-          }
-          if (attempt === MAX_RETRIES_PER_MODEL) {
-            console.warn(`Agotados intentos para ${model}, probando siguiente...`);
-          }
+          console.error(`Error ${model}:`, error.message);
+          if (error.name === 'AbortError') console.error('Timeout');
         } finally {
           clearTimeout(timeoutId);
         }
       }
     }
 
-    console.log('\n=== TODOS LOS MODELOS FALLARON ===');
     return Response.json(
-      { error: 'La IA no pudo generar una respuesta válida. Los modelos gratuitos están saturados. Inténtalo en unos minutos.' },
+      { error: 'Todos los modelos gratuitos están saturados. Inténtalo en unos minutos.' },
       { status: 503 }
     );
 
   } catch (error) {
-    console.error('\n=== ERROR GLOBAL ===', error);
-    return Response.json({ error: `Error: ${error.message}` }, { status: 500 });
+    console.error('ERROR GLOBAL:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
