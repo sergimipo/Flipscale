@@ -241,7 +241,6 @@ export default function DescriptionToolPage() {
       return;
     }
     
-    // Validación de longitud mínima
     if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 15)) {
       setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s") para que la IA pueda trabajar.');
       return;
@@ -272,7 +271,12 @@ export default function DescriptionToolPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+      
+      console.log('Respuesta del servidor:', data);
+      
+      if (!res.ok) {
+        throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+      }
 
       setGeneratedTitle(data.title || null);
       setGeneratedDescription(data.description);
