@@ -1,4 +1,3 @@
-// Permite que la función viva hasta 60s en Vercel (evita cortes = "load failed")
 export const maxDuration = 60;
 
 function extractJson(text) {
@@ -16,6 +15,14 @@ function extractJson(text) {
 export async function POST(req) {
   try {
     const { imageBase64, shortDesc, price, condition, languages, presetText } = await req.json();
+
+    // VALIDACIÓN TEMPRANA: Evita gastar intentos con descripciones demasiado vagas
+    if (!presetText && (!shortDesc || shortDesc.trim().length < 15)) {
+      return Response.json(
+        { error: 'La descripción es demasiado corta. Añade marca, tipo de prenda o color (mín. 15 caracteres).' },
+        { status: 400 }
+      );
+    }
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
     if (!OPENROUTER_API_KEY) {
@@ -91,7 +98,9 @@ DATOS:
           : basePrompt;
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25000);
+      // AUMENTADO a 40 segundos para modelos gratuitos que pueden tardar un poco más
+      const timer = setTimeout(() => controller.abort(), 40000);
+      
       try {
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -103,7 +112,8 @@ DATOS:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'openrouter/free',
+            // CAMBIADO a un modelo gratuito más estable y fiable con JSON
+            model: 'meta-llama/llama-3-8b-instruct:free',
             messages: [
               {
                 role: 'system',

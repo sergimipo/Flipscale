@@ -42,13 +42,11 @@ export default function DescriptionToolPage() {
   const [condition, setCondition] = useState('');
   const [languages, setLanguages] = useState(['es', 'en', 'fr']);
   const [presetText, setPresetText] = useState('');
-
   const [generating, setGenerating] = useState(false);
   const [generatedTitle, setGeneratedTitle] = useState(null);
   const [generatedDescription, setGeneratedDescription] = useState(null);
   const [generateError, setGenerateError] = useState('');
   const [copied, setCopied] = useState(null);
-
   const [savedPresets, setSavedPresets] = useState([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
@@ -119,8 +117,8 @@ export default function DescriptionToolPage() {
       isCopied
         ? 'bg-brand-500 text-white'
         : dark
-          ? 'bg-white text-ink-950 hover:bg-slate-200'
-          : 'bg-ink-950 text-white hover:bg-ink-800'
+        ? 'bg-white text-ink-950 hover:bg-slate-200'
+        : 'bg-ink-950 text-white hover:bg-ink-800'
     }`;
 
   const registerUsage = async () => {
@@ -250,18 +248,23 @@ export default function DescriptionToolPage() {
       setGenerateError('Has alcanzado el límite gratuito de este mes. Pásate a Pro para seguir generando.');
       return;
     }
-    if (!presetText.trim() && !shortDesc.trim()) {
-      setGenerateError('Pega un preset o escribe una descripción.');
+    
+    // VALIDACIÓN MEJORADA: Exige al menos 15 caracteres si no hay preset
+    if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 15)) {
+      setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s") para que la IA pueda trabajar.');
       return;
     }
+    
     if (languages.length === 0) {
       setGenerateError('Selecciona al menos un idioma.');
       return;
     }
+
     setGenerating(true);
     setGenerateError('');
     setGeneratedTitle(null);
     setGeneratedDescription(null);
+
     try {
       const res = await fetch('/api/generate-description', {
         method: 'POST',
@@ -275,8 +278,10 @@ export default function DescriptionToolPage() {
           presetText: presetText || '',
         }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+
       setGeneratedTitle(data.title || null);
       setGeneratedDescription(data.description);
       await registerUsage();
@@ -318,8 +323,8 @@ export default function DescriptionToolPage() {
                 isPro
                   ? 'border-accent-500/30 bg-accent-500/10 text-accent-500'
                   : blocked
-                    ? 'border-red-500/30 bg-red-500/10 text-red-500'
-                    : 'border-brand-500/30 bg-brand-500/10 text-brand-500'
+                  ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                  : 'border-brand-500/30 bg-brand-500/10 text-brand-500'
               }`}>
                 {isPro ? 'Pro · Ilimitado' : `${remaining} de ${usageLimit} usos este mes`}
               </span>
@@ -374,7 +379,6 @@ export default function DescriptionToolPage() {
               <p className={`mb-3 text-xs ${c.faint}`}>
                 Pega la descripción de un producto similar o selecciona un preset guardado.
               </p>
-
               {loadingPresets && <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets…</p>}
               {!loadingPresets && savedPresets.length > 0 && (
                 <div className="mb-3">
@@ -395,7 +399,6 @@ export default function DescriptionToolPage() {
                   </div>
                 </div>
               )}
-
               <textarea
                 value={presetText}
                 onChange={(e) => setPresetText(e.target.value)}
@@ -403,7 +406,6 @@ export default function DescriptionToolPage() {
                 placeholder={'Ej: Sudadera Nike Vintage\nTalla M, color negro\nNUEVO SIN ETIQUETAS...'}
                 className={`w-full rounded-lg border px-3 py-2.5 font-mono text-sm outline-none transition ${c.input}`}
               />
-
               <div className="mt-2 flex gap-2">
                 <input
                   type="text"
@@ -467,10 +469,11 @@ export default function DescriptionToolPage() {
                 value={shortDesc}
                 onChange={(e) => setShortDesc(e.target.value)}
                 rows={3}
+                minLength={15}
                 placeholder={
                   presetText
                     ? 'Ej: Es la misma pero en color rojo y talla M'
-                    : 'Ej: Gafas de sol azules, marca Ray-Ban...'
+                    : 'Ej: Pantalones vaqueros azules, cintura 18cm, marca Levi\'s...'
                 }
                 className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition ${c.input}`}
               />
