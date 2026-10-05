@@ -241,8 +241,8 @@ export default function DescriptionToolPage() {
       return;
     }
     
-    if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 15)) {
-      setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s") para que la IA pueda trabajar.');
+    if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 10)) {
+      setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s").');
       return;
     }
     
@@ -257,6 +257,7 @@ export default function DescriptionToolPage() {
     setGeneratedDescription(null);
 
     try {
+      // NOTA: No enviamos imageBase64 en esta versión de diagnóstico para evitar el error de Safari
       const payload = {
         shortDesc,
         price: price || null,
@@ -264,11 +265,6 @@ export default function DescriptionToolPage() {
         languages,
         presetText: presetText || '',
       };
-
-      // Incluir imagen solo si existe y no es demasiado grande
-      if (imageBase64 && imageBase64.length < 2000000) {
-        payload.imageBase64 = imageBase64;
-      }
 
       console.log('Enviando payload:', payload);
 
@@ -279,11 +275,14 @@ export default function DescriptionToolPage() {
       });
 
       const data = await res.json();
-      
       console.log('Respuesta del servidor:', data);
       
       if (!res.ok) {
-        throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+        // Si el backend nos devuelve rawResponse, lo mostramos en pantalla
+        const errorMsg = data.rawResponse 
+          ? `${data.error}\n\n--- Respuesta de la IA ---\n${data.rawResponse}` 
+          : (data.error || `Error ${res.status}: ${res.statusText}`);
+        throw new Error(errorMsg);
       }
 
       setGeneratedTitle(data.title || null);
@@ -413,35 +412,11 @@ export default function DescriptionToolPage() {
 
             <div className="mb-5">
               <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Foto del producto <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
+                Foto del producto <span className={`font-normal ${c.faint}`}>(Deshabilitada temporalmente para diagnóstico)</span>
               </label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
-                  dark ? 'border-white/15 bg-ink-800/40 hover:border-brand-500/50' : 'border-slate-300 bg-slate-50 hover:border-brand-500/60'
-                }`}
-              >
-                {imagePreview ? (
-                  <div className="flex w-full items-center gap-4">
-                    <img src={imagePreview} alt="Vista previa" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
-                    <div className="flex-1">
-                      <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Imagen cargada</p>
-                      <p className={`text-xs ${c.faint}`}>Haz clic para cambiar</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10">
-                      <svg className="h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                      </svg>
-                    </div>
-                    <p className={`text-sm font-medium ${dark ? 'text-white' : 'text-ink-950'}`}>Haz clic para subir</p>
-                    <p className={`mt-0.5 text-xs ${c.faint}`}>JPG, PNG, WEBP</p>
-                  </>
-                )}
+              <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition opacity-50 ${dark ? 'border-white/15 bg-ink-800/40' : 'border-slate-300 bg-slate-50'}`}>
+                <p className={`text-sm font-medium ${dark ? 'text-white' : 'text-ink-950'}`}>Subida de imagen pausada</p>
               </div>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             </div>
 
             <div className="mb-5">
@@ -452,7 +427,7 @@ export default function DescriptionToolPage() {
                 value={shortDesc}
                 onChange={(e) => setShortDesc(e.target.value)}
                 rows={3}
-                minLength={15}
+                minLength={10}
                 placeholder={
                   presetText
                     ? 'Ej: Es la misma pero en color rojo y talla M'
@@ -511,7 +486,7 @@ export default function DescriptionToolPage() {
             </div>
 
             {generateError && (
-              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
+              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500 whitespace-pre-wrap">
                 {generateError}
               </div>
             )}
