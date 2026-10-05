@@ -235,19 +235,15 @@ export default function DescriptionToolPage() {
     }
   }
 
-  async function handleGenerate() {
+async function handleGenerate() {
     if (blocked) {
-      setGenerateError('Has alcanzado el límite gratuito de este mes. Pásate a Pro para seguir generando.');
+      setGenerateError('Límite alcanzado.');
       return;
     }
     
-    if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 15)) {
-      setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s") para que la IA pueda trabajar.');
-      return;
-    }
-    
-    if (languages.length === 0) {
-      setGenerateError('Selecciona al menos un idioma.');
+    // Validación simple
+    if (!presetText.trim() && !shortDesc.trim()) {
+      setGenerateError('Escribe algo sobre el producto.');
       return;
     }
 
@@ -257,40 +253,67 @@ export default function DescriptionToolPage() {
     setGeneratedDescription(null);
 
     try {
+      // Preparamos el payload. 
+      // IMPORTANTE: En iOS, a veces las imágenes base64 muy grandes rompen el fetch.
+      // Vamos a intentar enviar sin imagen primero para ver si funciona.
+      
+      const payload = {
+        shortDesc,
+        price,
+        condition,
+        languages,
+        presetText,
+        // Comenta la siguiente línea para TESTEAR si el problema es la imagen:
+        // imageBase64: imageBase64 
+      };
+
+      // Si quieres probar con imagen, quita el comentario de arriba. 
+      // Pero dado tu error "pattern", sospecho que es la imagen.
+      if (imageBase64) {
+         // Solo enviamos imagen si pesa menos de 1MB aproximadamente (base64 ~1.3M chars)
+         if(imageBase64.length > 1500000) {
+            console.warn("Imagen demasiado grande, omitiendo.");
+         } else {
+            payload.imageBase64 = imageBase64;
+         }
+      }
+
       const res = await fetch('/api/generate-description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: imageBase64,
-          shortDesc,
-          price: price || null,
-          condition: condition || null,
-          languages,
-          presetText: presetText || '',
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       
-      console.log('Respuesta del servidor:', data);
-      
       if (!res.ok) {
-        throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
+        throw new Error(data.error || `Error HTTP ${res.status}`);
       }
 
-      setGeneratedTitle(data.title || null);
-      setGeneratedDescription(data.description);
-      await registerUsage();
+      if (data.title && data.description) {
+        setGeneratedTitle(data.title);
+        setGeneratedDescription(data.description);
+        await registerUsage();
+      } else {
+        throw new Error('Respuesta de IA inválida');
+      }
+
     } catch (err) {
-      console.error('Error completo:', err);
-      const msg = /load failed|failed to fetch|network/i.test(err.message || '')
-        ? 'La conexión con la IA falló (timeout). Inténtalo de nuevo.'
-        : err.message || 'No se pudo generar la descripción.';
+      console.error('Frontend Error:', err);
+      
+      // Manejo específico de errores de Safari/iOS
+      let msg = err.message;
+      if (msg.includes("pattern") || msg.includes("SyntaxError")) {
+         msg = "Error de formato en la respuesta de la IA. Inténtalo de nuevo.";
+      } else if (msg.includes("load failed") || msg.includes("network")) {
+         msg = "Conexión interrumpida. Prueba con WiFi o datos móviles.";
+      }
+      
       setGenerateError(msg);
     } finally {
       setGenerating(false);
     }
-  }
+}
 
   function copyText(text, key) {
     navigator.clipboard.writeText(text);
