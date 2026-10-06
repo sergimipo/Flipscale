@@ -45,6 +45,7 @@ export default function DescriptionToolPage() {
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState('');
+  const [activePresetName, setActivePresetName] = useState(''); // Nombre del preset cargado
 
   const [userId, setUserId] = useState(null);
   const [plan, setPlan] = useState('free');
@@ -186,9 +187,6 @@ export default function DescriptionToolPage() {
       console.error('Error al comprimir imagen:', err);
       setGenerateError('Error al procesar la imagen.');
     }
-    setShortDesc('');
-    setPrice('');
-    setCondition('');
   }
 
   function toggleLanguage(code) {
@@ -197,17 +195,33 @@ export default function DescriptionToolPage() {
     );
   }
 
+  // CARGAR PRESET: ahora también guarda el nombre y limpia campos de cambios
   function loadSavedPreset(preset) {
     setPresetText(preset.template_text);
-    setShortDesc('');
+    setActivePresetName(preset.name);
+    setShortDesc(''); // Limpiar cambios para evitar confusión
     setPrice('');
     setCondition('');
+    setGenerateError('');
+  }
+
+  // Limpiar preset manualmente
+  function clearPreset() {
+    setPresetText('');
+    setActivePresetName('');
   }
 
   async function handleSavePreset() {
-    if (!presetText.trim()) return;
-    if (!presetName.trim()) return;
+    if (!presetText.trim()) {
+      setGenerateError('Escribe algo en la descripción base antes de guardar.');
+      return;
+    }
+    if (!presetName.trim()) {
+      setGenerateError('Pon un nombre al preset.');
+      return;
+    }
     setSavingPreset(true);
+    setGenerateError('');
     try {
       const res = await fetch('/api/presets', {
         method: 'POST',
@@ -220,6 +234,7 @@ export default function DescriptionToolPage() {
       setPresetName('');
     } catch (err) {
       console.error('Error saving preset:', err);
+      setGenerateError('No se pudo guardar el preset: ' + (err.message || 'error desconocido'));
     } finally {
       setSavingPreset(false);
     }
@@ -230,6 +245,9 @@ export default function DescriptionToolPage() {
       const res = await fetch(`/api/presets?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Error al borrar');
       setSavedPresets((prev) => prev.filter((p) => p.id !== id));
+      if (activePresetName && !savedPresets.find(p => p.id === id)) {
+        // Si borramos el preset activo, limpiar
+      }
     } catch (err) {
       console.error('No se pudo borrar', err);
     }
@@ -241,8 +259,9 @@ export default function DescriptionToolPage() {
       return;
     }
     
+    // Validación: debe haber preset O descripción breve
     if (!presetText.trim() && (!shortDesc.trim() || shortDesc.trim().length < 10)) {
-      setGenerateError('La descripción es demasiado corta. Añade más detalles (ej: "Pantalones vaqueros azules, cintura 18cm, marca Levi\'s").');
+      setGenerateError('Añade una descripción base (preset) o escribe al menos 10 caracteres describiendo el producto.');
       return;
     }
     
@@ -258,19 +277,18 @@ export default function DescriptionToolPage() {
 
     try {
       const payload = {
-        shortDesc,
-        price: price || null,
+        shortDesc: shortDesc.trim() || null,
+        price: price.trim() || null,
         condition: condition || null,
         languages,
-        presetText: presetText || '',
+        presetText: presetText.trim() || '',
       };
 
-      // Incluir imagen solo si existe y no es demasiado grande
       if (imageBase64 && imageBase64.length < 2000000) {
         payload.imageBase64 = imageBase64;
       }
 
-      console.log('Enviando payload:', payload);
+      console.log('Enviando payload:', { ...payload, imageBase64: payload.imageBase64 ? 'presente' : 'ausente' });
 
       const res = await fetch('/api/generate-description', {
         method: 'POST',
@@ -290,6 +308,9 @@ export default function DescriptionToolPage() {
 
       setGeneratedTitle(data.title || null);
       setGeneratedDescription(data.description);
+      if (data._warning) {
+        setGenerateError('⚠️ ' + data._warning);
+      }
       await registerUsage();
     } catch (err) {
       console.error('Error completo:', err);
@@ -369,33 +390,57 @@ export default function DescriptionToolPage() {
           <section className={`rounded-2xl border p-6 lg:col-span-3 ${c.card} ${blocked ? 'pointer-events-none opacity-50' : ''}`}>
             <h2 className="mb-5 font-display text-xl font-semibold">Datos del producto</h2>
 
+            {/* PRESETS */}
             <div className="mb-6">
-              <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Descripción base (preset)</label>
-              <p className={`mb-3 text-xs ${c.faint}`}>Pega la descripción de un producto similar o selecciona un preset guardado.</p>
+              <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
+                Descripción base (preset)
+              </label>
+              <p className={`mb-3 text-xs ${c.faint}`}>
+                Pega la descripción de un producto similar o selecciona un preset guardado. La IA la usará como plantilla.
+              </p>
+              
               {loadingPresets && <p className={`mb-2 text-xs ${c.faint}`}>Cargando presets…</p>}
+              
               {!loadingPresets && savedPresets.length > 0 && (
                 <div className="mb-3">
                   <label className={`mb-2 block text-xs font-semibold ${c.sub}`}>Mis presets guardados</label>
                   <div className="flex flex-wrap gap-2">
-                    {savedPresets.map((preset) => (
-                      <div key={preset.id} className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${c.chip}`}>
-                        <button onClick={() => loadSavedPreset(preset)} className="hover:text-brand-500">{preset.name}</button>
-                        <button onClick={() => handleDeletePreset(preset.id)} className="text-red-500 hover:text-red-400" title="Borrar">
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                    ))}
+                    {savedPresets.map((preset) => {
+                      const isActive = activePresetName === preset.name;
+                      return (
+                        <div key={preset.id} className={`flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition ${isActive ? 'border-brand-500 bg-brand-500/20 text-brand-500' : c.chip}`}>
+                          <button onClick={() => loadSavedPreset(preset)} className="hover:text-brand-500">
+                            {preset.name}
+                          </button>
+                          <button onClick={() => handleDeletePreset(preset.id)} className="text-red-500 hover:text-red-400" title="Borrar">
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
               <textarea
                 value={presetText}
-                onChange={(e) => setPresetText(e.target.value)}
-                rows={4}
-                placeholder={'Ej: Sudadera Nike Vintage\nTalla M, color negro\nNUEVO SIN ETIQUETAS...'}
+                onChange={(e) => {
+                  setPresetText(e.target.value);
+                  if (!e.target.value.trim()) setActivePresetName('');
+                }}
+                rows={5}
+                placeholder={'Ej:\n🇪🇸 Español\nMUY BUENO\n✔ Sudadera Nike Vintage\n✔ Talla M, color negro\n✔ Sin desperfectos\n Precio: 25 €\n────────\n🇬🇧 English\nVERY GOOD\n✔ Nike Vintage Sweatshirt\n✔ Size M, black\n✔ No flaws\n Price: €25'}
                 className={`w-full rounded-lg border px-3 py-2.5 font-mono text-sm outline-none transition ${c.input}`}
               />
-              <div className="mt-2 flex gap-2">
+              
+              {activePresetName && (
+                <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-xs ${dark ? 'bg-brand-500/10 text-brand-400' : 'bg-brand-50 text-brand-600'}`}>
+                  <span>📋 Preset activo: <strong>{activePresetName}</strong></span>
+                  <button onClick={clearPreset} className="font-semibold hover:underline">Limpiar</button>
+                </div>
+              )}
+
+              <div className="mt-3 flex gap-2">
                 <input
                   type="text"
                   value={presetName}
@@ -413,9 +458,10 @@ export default function DescriptionToolPage() {
               </div>
             </div>
 
+            {/* IMAGEN */}
             <div className="mb-5">
               <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Foto del producto <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
+                Foto del producto <span className={`font-normal ${c.faint}`}>(opcional)</span>
               </label>
               <div
                 onClick={() => fileInputRef.current?.click()}
@@ -446,24 +492,28 @@ export default function DescriptionToolPage() {
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             </div>
 
+            {/* DESCRIPCIÓN BREVE / CAMBIOS */}
             <div className="mb-5">
               <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
-                Descripción breve / cambios <span className={`font-normal ${c.faint}`}>(opcional si hay preset)</span>
+                {presetText.trim() ? 'Cambios sobre el preset' : 'Descripción del producto'} 
+                <span className={`font-normal ${c.faint}`}>
+                  {presetText.trim() ? ' (opcional)' : ' (obligatorio si no hay preset)'}
+                </span>
               </label>
               <textarea
                 value={shortDesc}
                 onChange={(e) => setShortDesc(e.target.value)}
                 rows={3}
-                minLength={10}
                 placeholder={
-                  presetText
-                    ? 'Ej: Es la misma pero en color rojo y talla M'
-                    : 'Ej: Pantalones vaqueros azules, cintura 18cm, marca Levi\'s...'
+                  presetText.trim()
+                    ? 'Ej: Cambia el color a rojo y la talla a L, precio 30€'
+                    : 'Ej: Pantalones vaqueros Levi\'s 501 azules, talla M, muy buen estado...'
                 }
                 className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition ${c.input}`}
               />
             </div>
 
+            {/* PRECIO Y ESTADO */}
             <div className="mb-5 grid grid-cols-2 gap-4">
               <div>
                 <label className={`mb-1.5 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>
@@ -473,7 +523,7 @@ export default function DescriptionToolPage() {
                   type="text"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Ej: 45,99"
+                  placeholder="Ej: 25"
                   className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition ${c.input}`}
                 />
               </div>
@@ -494,6 +544,7 @@ export default function DescriptionToolPage() {
               </div>
             </div>
 
+            {/* IDIOMAS */}
             <div className="mb-6">
               <label className={`mb-2 block text-sm font-semibold ${dark ? 'text-white' : 'text-ink-950'}`}>Idiomas dentro de la descripción</label>
               <div className="flex flex-wrap gap-2">
@@ -535,6 +586,7 @@ export default function DescriptionToolPage() {
             </button>
           </section>
 
+          {/* RESULTADO */}
           <section className={`rounded-2xl border p-6 lg:col-span-2 ${c.card}`}>
             <h2 className="mb-5 font-display text-xl font-semibold">Resultado</h2>
 
