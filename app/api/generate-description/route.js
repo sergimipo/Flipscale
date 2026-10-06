@@ -3,23 +3,23 @@ export const maxDuration = 60;
 function extractJson(text) {
   if (!text || typeof text !== 'string') return null;
   
+  // 1. Limpiar markdown
   let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   
+  // 2. Intentar parseo directo
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   
   if (start !== -1 && end !== -1) {
     try {
-      const jsonStr = clean.slice(start, end + 1);
-      const parsed = JSON.parse(jsonStr);
-      if (parsed.title && parsed.description) {
-        return parsed;
-      }
+      const parsed = JSON.parse(clean.slice(start, end + 1));
+      if (parsed.title && parsed.description) return parsed;
     } catch (e) {
       console.log("Fallo parseo directo:", e.message);
     }
   }
   
+  // 3. Fallback con Regex por si el JSON está ligeramente roto
   const titleMatch = clean.match(/"title"\s*:\s*"([^"]*)"/i);
   const descMatch = clean.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
   
@@ -33,134 +33,105 @@ function extractJson(text) {
   return null;
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { imageBase64, shortDesc, price, condition, languages, presetText } = body;
-
-    console.log('=== API START ===');
-    console.log('shortDesc:', shortDesc);
-
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    if (!OPENROUTER_API_KEY) {
-      return Response.json({ error: 'API Key faltante' }, { status: 500 });
+    const { imageBase64, shortDesc, price, condition, languages, presetText } = await req.json();
+    
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      return Response.json({ error: 'Falta la variable de entorno GEMINI_API_KEY en Vercel' }, { status: 500 });
     }
 
     const langs = Array.isArray(languages) ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: 'Español', en: 'Inglés', fr: 'Francés' };
+    const langNames = { es: '🇪🇸 Español', en: '🇬🇧 English', fr: '🇫🇷 Français' };
     const langList = langs.map(l => langNames[l] || l).join(', ');
 
-    const systemPrompt = `Eres un generador de anuncios de segunda mano.
-Devuelve SOLO un objeto JSON válido, sin markdown ni explicaciones.
+    const prompt = `Eres un experto en ventas de segunda mano (Vinted/Wallapop).
+Devuelve SOLO un objeto JSON válido, sin markdown, sin explicaciones.
 Formato exacto: {"title": "string", "description": "string"}
 
-REGLAS:
-- title: Español, máximo 60 caracteres
-- description: Un solo string con saltos de línea \\n, en idiomas ${langList}. 
-  Cada idioma separado por ───────, con estado en MAYÚSCULAS, 3 viñetas ✔ y precio al final.`;
+REGLAS OBLIGATORIAS:
+1. title: SIEMPRE en español, máximo 60 caracteres. Incluye marca, modelo, color y talla si los conoces.
+2. description: Un ÚNICO string con saltos de línea (\\n). Debe contener los idiomas: ${langList}.
+   - Cada bloque de idioma empieza con su nombre (ej: 🇪🇸 Español).
+   - Primera línea del bloque: el ESTADO EN MAYÚSCULAS.
+   - Después, exactamente 3 viñetas con el símbolo ✔.
+   - Última línea del bloque con el precio (ej: "💰 Precio: X €"). Omítela si no hay precio.
+   - Separa los bloques de idioma con una línea: ────────
 
-    let userContent = `Genera un anuncio profesional para:
-Producto: ${shortDesc || presetText || 'No especificado'}
-Precio: ${price || 'No especificado'}
-Estado: ${condition || 'No especificado'}`;
+DATOS DEL PRODUCTO:
+- Producto: ${shortDesc || presetText || 'No especificado'}
+- Precio: ${price || 'No especificado'}
+- Estado: ${condition || 'No especificado'}
 
-    // MODELOS DISPONIBLES en orden de prioridad
-    const models = [
-      'google/gemma-4-31b-it:free',           // El más potente (31B)
-      'google/gemma-4-26b-a4b-it:free',       // Gemma 4 A4B (26B)
-      'nvidia/nemotron-3-nano-omni:free',     // Nemotron 30B multimodal
-      'liquid/lfm2.5-2.6b:free',              // LiquidAI 2.6B (más estable)
-      'openrouter/free'                       // Router automático (último recurso)
-    ];
+Si faltan datos, infiérelos de forma coherente y profesional.`;
 
-    const MAX_RETRIES_PER_MODEL = 2;
-    const BASE_DELAY = 3000; // 3 segundos
-
-    for (const model of models) {
-      console.log(`\n=== Probando: ${model} ===`);
-      
-      for (let attempt = 1; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
-        
-        try {
-          const messages = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: imageBase64 
-              ? [{ type: 'text', text: userContent }, { type: 'image_url', image_url: { url: imageBase64 } }]
-              : userContent
-            }
-          ];
-
-          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://flipscale.com',
-              'X-Title': 'FlipScale',
-            },
-            signal: controller.signal,
-            body: JSON.stringify({
-              model: model,
-              messages: messages,
-              temperature: 0.3,
-              max_tokens: 1500,
-            }),
-          });
-
-          clearTimeout(timeoutId);
-
-          if (response.status === 429) {
-            const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-            console.log(`⏳ Rate limited (${model}). Esperando ${delay}ms...`);
-            await sleep(delay);
-            continue;
-          }
-
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error(`❌ Error ${model}:`, errText);
-            break; // Probar siguiente modelo
-          }
-
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          
-          console.log(`✅ ${model} respondió`);
-          
-          if (!content) continue;
-
-          const parsed = extractJson(content);
-          
-          if (parsed && parsed.title && parsed.description) {
-            console.log('✅ JSON válido');
-            return Response.json({
-              title: String(parsed.title).trim(),
-              description: String(parsed.description).trim()
-            });
-          }
-
-        } catch (error) {
-          console.error(`Error ${model}:`, error.message);
-          if (error.name === 'AbortError') console.error('Timeout');
-        } finally {
-          clearTimeout(timeoutId);
+    // Construir el payload para Gemini
+    const parts = [{ text: prompt }];
+    
+    // Si hay imagen, añadirla en el formato que espera Gemini
+    if (imageBase64) {
+      // Gemini necesita el base64 limpio, sin el prefijo "data:image/jpeg;base64,"
+      const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: cleanBase64
         }
-      }
+      });
     }
 
-    return Response.json(
-      { error: 'Todos los modelos gratuitos están saturados. Inténtalo en unos minutos.' },
-      { status: 503 }
-    );
+    console.log('Enviando petición a Google Gemini...');
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({
+        contents: [{ parts: parts }],
+        generationConfig: { 
+          temperature: 0.3, 
+          maxOutputTokens: 1500,
+          responseMimeType: "application/json" // Forzamos a Gemini a devolver JSON
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Error de Gemini:', data);
+      return Response.json({ 
+        error: `Error de IA: ${data.error?.message || 'Desconocido'}` 
+      }, { status: 500 });
+    }
+
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!content) {
+      return Response.json({ error: 'La IA no devolvió contenido' }, { status: 500 });
+    }
+
+    console.log('Respuesta de Gemini recibida correctamente');
+
+    const parsed = extractJson(content);
+    
+    if (parsed && parsed.title && parsed.description) {
+      return Response.json({
+        title: String(parsed.title).trim(),
+        description: String(parsed.description).trim()
+      });
+    }
+
+    // Si el parseo falla, devolvemos el texto crudo para que puedas verlo
+    return Response.json({ 
+      error: 'Formato no válido', 
+      rawResponse: content 
+    }, { status: 500 });
 
   } catch (error) {
     console.error('ERROR GLOBAL:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: `Error del servidor: ${error.message}` }, { status: 500 });
   }
 }
