@@ -70,11 +70,11 @@ DATOS:
       });
     }
 
-    // LISTA DE MODELOS GRATUITOS ESTABLES DE GOOGLE (en orden de prioridad)
+    // NOMBRES DE MODELO VIGENTES Y ESTABLES EN LA CAPA GRATUITA DE GOOGLE
     const models = [
-      'gemini-1.5-flash',       // El más estable y fiable
-      'gemini-1.5-flash-8b',    // Ultrarrápido, límites muy altos
-      'gemini-2.0-flash-exp'    // Experimental, pool de servidores diferente
+      'gemini-1.5-flash-latest', // El alias oficial que Google mantiene actualizado
+      'gemini-1.5-flash-8b',     // Versión ligera, límites de uso mucho más altos
+      'gemini-2.0-flash-exp'     // Versión experimental (a veces tiene capacidad separada)
     ];
 
     for (const model of models) {
@@ -96,16 +96,16 @@ DATOS:
 
         const data = await response.json();
 
-        // Si el modelo está saturado, pasamos al siguiente de la lista
         if (!response.ok) {
           const errorMsg = data.error?.message || '';
-          if (errorMsg.includes('high demand') || errorMsg.includes('resource_exhausted') || response.status === 429 || response.status === 503) {
-            console.log(`⚠️ ${model} está saturado. Probando el siguiente...`);
-            await sleep(1000); // Pequeña pausa antes del siguiente intento
+          // Si es 404 (modelo retirado), 429 (límite) o 503 (alta demanda), pasamos al siguiente
+          if (response.status === 404 || response.status === 429 || response.status === 503 || errorMsg.includes('high demand') || errorMsg.includes('resource_exhausted')) {
+            console.log(`⚠️ ${model} no disponible o saturado. Probando el siguiente...`);
+            await sleep(1500);
             continue;
           }
           
-          // Si es otro error (ej: clave inválida), lo lanzamos
+          // Si es un error grave (ej: clave inválida), lo lanzamos para detener el bucle
           throw new Error(data.error?.message || `Error HTTP ${response.status}`);
         }
 
@@ -123,7 +123,7 @@ DATOS:
         }
 
       } catch (error) {
-        // Si es un error de configuración (no de saturación), lo paramos
+        // Si la clave es inválida, no tiene sentido seguir probando
         if (error.message.includes('API key not valid') || error.message.includes('not found')) {
           throw error;
         }
@@ -132,8 +132,8 @@ DATOS:
       }
     }
 
-    // Si todos los modelos de Google fallan, usamos un fallback local para no dejar al usuario colgado
-    console.log('⚠️ Todos los modelos de IA están saturados. Usando fallback local.');
+    // 🛡️ PLAN B: FALLBACK LOCAL (Si Google bloquea completamente la capa gratuita)
+    console.log('⚠️ Todos los modelos de IA fallaron. Activando fallback local.');
     const fallbackDesc = langs.map(l => {
       const name = langNames[l] || l;
       const cond = condition ? condition.toUpperCase() : 'ESTADO NO ESPECIFICADO';
