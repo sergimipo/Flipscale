@@ -41,48 +41,48 @@ export async function POST(req) {
     }
 
     const langs = Array.isArray(languages) && languages.length > 0 ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: '🇪🇸 Español', en: '🇬🇧 English', fr: '🇫🇷 Français' };
+    const langNames = { es: '🇪🇸 Español', en: '🇧 English', fr: '🇷 Français' };
 
     let prompt = '';
     
     if (presetText && presetText.trim().length > 10) {
-      // MODO PRESET: Análisis + Sustitución
-      prompt = `Eres un editor de anuncios de segunda mano. Tu tarea es EDITAR un preset aplicando cambios específicos.
+      // MODO PRESET: Análisis gramatical + sustitución inteligente
+      prompt = `Eres un editor profesional de anuncios de segunda mano. Tu tarea es EDITAR un preset aplicando cambios con concordancia gramatical correcta.
 
-PASO 1: ANALIZA el preset e identifica estos elementos:
-- Marca y modelo del producto
-- Color actual
-- Estado (NUEVO, MUY BUENO, etc.)
-- Precio actual
-- Características específicas (talla, material, etc.)
-
-PASO 2: APLICA los cambios indicando qué elementos del análisis anterior deben modificarse.
-
-PASO 3: REESCRIBE el preset completo manteniendo TODA la estructura y formato, pero sustituyendo los elementos cambiados.
+ANÁLISIS GRAMATICAL OBLIGATORIO:
+1. Identifica el género del producto (gafas = femenino, pantalones = masculino, etc.)
+2. Ajusta los adjetivos de color al género correcto (gafas rojas, no "gafas rojos")
+3. Mantén la concordancia en plural/singular (gafas rojas, no "gafa roja")
 
 REGLAS CRÍTICAS:
-1. NUNCA uses el texto de "cambios" como título. El título debe ser: [Marca] [Modelo] [Color nuevo] [Estado].
-2. Si el cambio dice "en rojo", busca el color actual en el preset y reemplázalo por "rojo" en TODOS los idiomas.
-3. Mantén TODAS las demás líneas del preset exactamente igual (viñetas, descripciones, formato).
-4. El título debe estar en español y describir el producto REAL con los cambios aplicados.
+1. TÍTULO: Debe ser [Producto] [Marca] [Modelo] [Color nuevo] [Estado]. NUNCA uses "Producto en color X".
+   Ejemplo correcto: "Gafas Oakley Speedcraft S3 Rojas Nuevas"
+   Ejemplo incorrecto: "Producto en color rojo"
+2. COLOR: Si el cambio dice "en rojo", reemplaza TODAS las menciones de color manteniendo concordancia:
+   - "azules y transparentes" → "rojas y transparentes" (gafas = femenino)
+   - "1 plateada" → "1 roja" (lente = femenino)
+3. MANTÉN toda la estructura del preset: viñetas, formato, separadores, todos los idiomas.
+4. Si no hay cambios de color, mantén el color original del preset.
 
-EJEMPLO CORRECTO:
-Preset: "Gafas Oakley Speedcraft S3 azules"
-Cambio: "en rojo"
-Resultado: "Gafas Oakley Speedcraft S3 rojas" (NO "son las mismas pero en rojo")
+EJEMPLO COMPLETO:
+PRESET: "Gafas Oakley Speedcraft S3 azules y transparentes. NUEVAS, sin uso. ✓ Modelo Speedcraft S3 ✓ Azules y transparentes ✓ Incluye 1 plateada efecto espejo"
+CAMBIO: "en rojo"
+RESULTADO CORRECTO:
+- Título: "Gafas Oakley Speedcraft S3 Rojas Nuevas"
+- Descripción: "Gafas Oakley Speedcraft S3 rojas y transparentes. NUEVAS, sin uso. ✓ Modelo Speedcraft S3 ✓ Rojas y transparentes ✓ Incluye 1 roja efecto espejo"
 
 PRESET A EDITAR:
 ${presetText}
 
 CAMBIOS A APLICAR:
-- ${shortDesc || 'Ninguno'}
+- ${shortDesc || 'Ninguno, mantener todo igual'}
 - Precio: ${price || 'Mantener el actual'}
 - Estado: ${condition || 'Mantener el actual'}
 
 Devuelve SOLO un JSON:
 {
-  "title": "título del producto con cambios aplicados (español, máx 60 chars)",
-  "description": "preset completo reescrito con los cambios aplicados, manteniendo todos los idiomas y formato original"
+  "title": "título específico con marca, modelo, color y estado (español, máx 60 chars)",
+  "description": "preset completo con cambios aplicados manteniendo concordancia gramatical en todos los idiomas"
 }`;
     } else {
       // MODO SIN PRESET: Generar desde cero
@@ -90,7 +90,7 @@ Devuelve SOLO un JSON:
       prompt = `Eres un experto en ventas de segunda mano. Genera un anuncio profesional.
 
 REGLAS:
-1. title: Español, máx 60 caracteres. Marca, modelo, color. SIN emojis.
+1. title: Español, máx 60 caracteres. [Producto] [Marca] [Modelo] [Color] [Estado]. SIN "Producto en color X".
 2. description: Un string con saltos de línea (\\n) en: ${langList}.
    - Cada bloque: bandera + nombre del idioma.
    - Segunda línea: ESTADO EN MAYÚSCULAS.
@@ -130,7 +130,7 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
           body: JSON.stringify({
             contents: [{ parts: parts }],
             generationConfig: { 
-              temperature: 0.1, // Muy bajo para ser fiel al preset
+              temperature: 0.1,
               maxOutputTokens: 2000,
               responseMimeType: "application/json",
               responseSchema: {
@@ -162,35 +162,28 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
         if (!content) continue;
 
         console.log(`✅ Éxito con ${model}`);
-        console.log('Respuesta:', content.substring(0, 800));
+        console.log('Respuesta:', content.substring(0, 1000));
 
         const parsed = extractJson(content);
         if (parsed && parsed.title && parsed.description) {
-          // VALIDACIÓN 1: El título NO debe ser igual al texto de cambios
-          if (shortDesc && parsed.title.toLowerCase().trim() === shortDesc.toLowerCase().trim()) {
-            console.log('⚠️ Título = texto de cambios, rechazando');
-            continue;
-          }
-          
-          // VALIDACIÓN 2: El título NO debe empezar con "son las mismas"
-          if (parsed.title.toLowerCase().startsWith('son las mismas') || parsed.title.toLowerCase().startsWith('es el mismo')) {
+          // VALIDACIÓN 1: El título NO debe ser genérico
+          if (parsed.title.toLowerCase().includes('producto en color') || 
+              parsed.title.toLowerCase().includes('producto en')) {
             console.log('⚠️ Título genérico, rechazando');
             continue;
           }
           
-          // VALIDACIÓN 3: Si hay preset, verificar que se mantuvo la estructura
-          if (presetText && presetText.length > 20) {
-            // Contar líneas del preset vs descripción generada
-            const presetLines = presetText.split('\n').filter(l => l.trim().length > 0).length;
-            const descLines = parsed.description.split('\n').filter(l => l.trim().length > 0).length;
-            
-            console.log(`Líneas preset: ${presetLines}, Líneas descripción: ${descLines}`);
-            
-            // Si la descripción tiene menos del 50% de líneas que el preset, la IA resumió demasiado
-            if (descLines < presetLines * 0.5) {
-              console.log('⚠️ Descripción demasiado corta, rechazando');
-              continue;
-            }
+          // VALIDACIÓN 2: El título debe tener al menos 3 palabras específicas
+          const titleWords = parsed.title.split(' ').filter(w => w.length > 2);
+          if (titleWords.length < 3) {
+            console.log('️ Título demasiado corto o genérico, rechazando');
+            continue;
+          }
+          
+          // VALIDACIÓN 3: No debe haber errores gramaticales obvios como "rojoes"
+          if (parsed.description.match(/rojoes|azuleses|negroses/i)) {
+            console.log('⚠️ Errores gramaticales detectados, rechazando');
+            continue;
           }
           
           return Response.json({
@@ -208,26 +201,40 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
       }
     }
 
-    // FALLBACK LOCAL: Aplicar cambios manualmente al preset
-    console.log('️ IA saturada. Aplicando cambios manualmente.');
+    // FALLBACK LOCAL: Aplicar cambios con concordancia
+    console.log('⚠️ IA saturada. Aplicando cambios manualmente con concordancia.');
     
     let fallbackDesc = presetText || '';
     let fallbackTitle = '';
     
     if (shortDesc && fallbackDesc) {
-      // Detectar qué tipo de cambio es
-      const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado|dorado|plateado)/i);
-      const sizeMatch = shortDesc.match(/(talla\s+[smxl]|size\s+[smxl])/i);
+      // Detectar el producto y su género
+      const productMatch = fallbackDesc.match(/(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)/i);
+      const isFeminine = productMatch && ['gafas', 'camiseta', 'zapatillas', 'sudadera', 'chaqueta'].includes(productMatch[0].toLowerCase());
       
-      if (colorMatch) {
-        // Reemplazar colores en el preset
-        const colors = ['azul', 'azules', 'rojo', 'rojos', 'negro', 'negros', 'blanco', 'blancos', 'transparente', 'transparentes', 'ahumado', 'ahumados', 'camaleón'];
+      // Detectar color nuevo
+      const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado)/i);
+      
+      if (colorMatch && productMatch) {
         const newColor = colorMatch[0];
-        colors.forEach(c => {
+        // Ajustar concordancia
+        const colorAdjective = isFeminine ? 
+          (newColor === 'rojo' ? 'rojas' : newColor === 'azul' ? 'azules' : newColor + 's') : 
+          newColor;
+        
+        // Reemplazar colores manteniendo concordancia
+        const oldColors = ['azules', 'azul', 'rojas', 'rojo', 'negras', 'negro', 'transparentes', 'transparente'];
+        oldColors.forEach(c => {
           const regex = new RegExp(c, 'gi');
-          fallbackDesc = fallbackDesc.replace(regex, newColor);
+          fallbackDesc = fallbackDesc.replace(regex, colorAdjective);
         });
-        fallbackTitle = `Producto en color ${newColor}`;
+        
+        // Generar título específico
+        const brandMatch = fallbackDesc.match(/(Oakley|Nike|Adidas|Gucci|Chrome Hearts)/i);
+        const modelMatch = fallbackDesc.match(/(Speedcraft|Air Max|Stan Smith|S3)/i);
+        const stateMatch = fallbackDesc.match(/(NUEVAS|NUEVO|MUY BUENO|BUENO)/i);
+        
+        fallbackTitle = `${productMatch[0]} ${brandMatch ? brandMatch[0] : ''} ${modelMatch ? modelMatch[0] : ''} ${colorAdjective} ${stateMatch ? stateMatch[0] : ''}`.trim().substring(0, 60);
       }
     }
     
