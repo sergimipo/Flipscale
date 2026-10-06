@@ -2,28 +2,23 @@ export const maxDuration = 60;
 
 function extractJson(text) {
   if (!text || typeof text !== 'string') return null;
-  
   let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
-  
   if (start !== -1 && end !== -1) {
     try {
       const parsed = JSON.parse(clean.slice(start, end + 1));
       if (parsed.title && parsed.description) return parsed;
     } catch (e) {}
   }
-  
   const titleMatch = clean.match(/"title"\s*:\s*"([^"]*)"/i);
   const descMatch = clean.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
-  
   if (titleMatch && descMatch) {
     return {
       title: titleMatch[1],
       description: descMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
     };
   }
-  
   return null;
 }
 
@@ -31,55 +26,165 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Función para corregir concordancia gramatical básica
-function fixGenderAgreement(text, product, newColor) {
-  // Detectar si el producto es femenino
-  const feminineProducts = ['gafas', 'camiseta', 'zapatillas', 'sudadera', 'chaqueta', 'falda', 'bolsa', 'mochila'];
-  const isFeminine = feminineProducts.some(p => product.toLowerCase().includes(p));
+// ============ FUNCIONES DE POST-PROCESAMIENTO ============
+
+// Detecta el producto principal del preset
+function detectProduct(text) {
+  const products = [
+    { name: 'gafas', gender: 'f', plural: true },
+    { name: 'gorra', gender: 'f', plural: false },
+    { name: 'gorras', gender: 'f', plural: true },
+    { name: 'camiseta', gender: 'f', plural: false },
+    { name: 'camisetas', gender: 'f', plural: true },
+    { name: 'zapatillas', gender: 'f', plural: true },
+    { name: 'sudadera', gender: 'f', plural: false },
+    { name: 'sudaderas', gender: 'f', plural: true },
+    { name: 'chaqueta', gender: 'f', plural: false },
+    { name: 'chaquetas', gender: 'f', plural: true },
+    { name: 'pantalones', gender: 'm', plural: true },
+    { name: 'pantalón', gender: 'm', plural: false },
+    { name: 'bolsa', gender: 'f', plural: false },
+    { name: 'bolsas', gender: 'f', plural: true },
+    { name: 'mochila', gender: 'f', plural: false },
+    { name: 'mochilas', gender: 'f', plural: true },
+    { name: 'falda', gender: 'f', plural: false },
+    { name: 'faldas', gender: 'f', plural: true },
+    { name: 'vestido', gender: 'm', gender: 'm', plural: false },
+    { name: 'vestidos', gender: 'm', plural: true },
+    { name: 'abrigo', gender: 'm', plural: false },
+    { name: 'abrigos', gender: 'm', plural: true },
+    { name: 'reloj', gender: 'm', plural: false },
+    { name: 'relojes', gender: 'm', plural: true },
+  ];
+  const lower = text.toLowerCase();
+  for (const p of products) {
+    if (lower.includes(p.name)) return p;
+  }
+  return { name: 'producto', gender: 'm', plural: false };
+}
+
+// Detecta marca y modelo del preset
+function detectBrandModel(text) {
+  const brands = ['Oakley', 'Nike', 'Adidas', 'Gucci', 'Chrome Hearts', 'Ray-Ban', 'Puma', 'Reebok', 'New Balance', 'Vans', 'Converse', 'Supreme', 'Stussy', 'Carhartt'];
+  const models = ['Speedcraft', 'Air Max', 'Stan Smith', 'S3', '501', 'Ultraboost', 'Dunk', 'Jordan', 'Yeezy', 'Trucker'];
   
-  // Mapa de colores con concordancia
-  const colorMap = {
-    'rojo': isFeminine ? 'rojas' : 'rojos',
-    'azul': isFeminine ? 'azules' : 'azules',
-    'negro': isFeminine ? 'negras' : 'negros',
-    'blanco': isFeminine ? 'blancas' : 'blancos',
-    'verde': isFeminine ? 'verdes' : 'verdes',
-    'transparente': isFeminine ? 'transparentes' : 'transparentes',
-    'ahumado': isFeminine ? 'ahumadas' : 'ahumados',
-    'camaleón': 'camaleón'
+  const lower = text.toLowerCase();
+  let brand = '';
+  let model = '';
+  
+  for (const b of brands) {
+    if (lower.includes(b.toLowerCase())) { brand = b; break; }
+  }
+  for (const m of models) {
+    if (lower.includes(m.toLowerCase())) { model = m; break; }
+  }
+  
+  return { brand, model };
+}
+
+// Detecta color en un texto
+function detectColor(text) {
+  const colors = ['rojo', 'roja', 'rojos', 'rojas', 'rosa', 'azul', 'azules', 'negro', 'negra', 'negros', 'negras', 'blanco', 'blanca', 'blancos', 'blancas', 'verde', 'verdes', 'gris', 'grises', 'marrón', 'marrones', 'beige', 'camaleón', 'transparente', 'transparentes', 'ahumado', 'ahumada', 'ahumados', 'ahumadas', 'dorado', 'dorada', 'plateado', 'plateada', 'plateados', 'plateadas'];
+  const lower = text.toLowerCase();
+  for (const c of colors) {
+    if (lower.includes(c)) return c;
+  }
+  return null;
+}
+
+// Convierte un color base a su forma correcta según género/número
+function adaptColor(baseColor, gender, plural) {
+  const colorRoots = {
+    'rojo': { m: 'rojo', f: 'roja', mp: 'rojos', fp: 'rojas' },
+    'roja': { m: 'rojo', f: 'roja', mp: 'rojos', fp: 'rojas' },
+    'rojos': { m: 'rojo', f: 'roja', mp: 'rojos', fp: 'rojas' },
+    'rojas': { m: 'rojo', f: 'roja', mp: 'rojos', fp: 'rojas' },
+    'rosa': { m: 'rosa', f: 'rosa', mp: 'rosas', fp: 'rosas' },
+    'azul': { m: 'azul', f: 'azul', mp: 'azules', fp: 'azules' },
+    'azules': { m: 'azul', f: 'azul', mp: 'azules', fp: 'azules' },
+    'negro': { m: 'negro', f: 'negra', mp: 'negros', fp: 'negras' },
+    'negra': { m: 'negro', f: 'negra', mp: 'negros', fp: 'negras' },
+    'negros': { m: 'negro', f: 'negra', mp: 'negros', fp: 'negras' },
+    'negras': { m: 'negro', f: 'negra', mp: 'negros', fp: 'negras' },
+    'blanco': { m: 'blanco', f: 'blanca', mp: 'blancos', fp: 'blancas' },
+    'blanca': { m: 'blanco', f: 'blanca', mp: 'blancos', fp: 'blancas' },
+    'blancos': { m: 'blanco', f: 'blanca', mp: 'blancos', fp: 'blancas' },
+    'blancas': { m: 'blanco', f: 'blanca', mp: 'blancos', fp: 'blancas' },
+    'verde': { m: 'verde', f: 'verde', mp: 'verdes', fp: 'verdes' },
+    'verdes': { m: 'verde', f: 'verde', mp: 'verdes', fp: 'verdes' },
+    'gris': { m: 'gris', f: 'gris', mp: 'grises', fp: 'grises' },
+    'grises': { m: 'gris', f: 'gris', mp: 'grises', fp: 'grises' },
+    'marrón': { m: 'marrón', f: 'marrón', mp: 'marrones', fp: 'marrones' },
+    'marrones': { m: 'marrón', f: 'marrón', mp: 'marrones', fp: 'marrones' },
+    'beige': { m: 'beige', f: 'beige', mp: 'beige', fp: 'beige' },
+    'camaleón': { m: 'camaleón', f: 'camaleón', mp: 'camaleón', fp: 'camaleón' },
+    'transparente': { m: 'transparente', f: 'transparente', mp: 'transparentes', fp: 'transparentes' },
+    'transparentes': { m: 'transparente', f: 'transparente', mp: 'transparentes', fp: 'transparentes' },
+    'ahumado': { m: 'ahumado', f: 'ahumada', mp: 'ahumados', fp: 'ahumadas' },
+    'ahumada': { m: 'ahumado', f: 'ahumada', mp: 'ahumados', fp: 'ahumadas' },
+    'ahumados': { m: 'ahumado', f: 'ahumada', mp: 'ahumados', fp: 'ahumadas' },
+    'ahumadas': { m: 'ahumado', f: 'ahumada', mp: 'ahumados', fp: 'ahumadas' },
+    'dorado': { m: 'dorado', f: 'dorada', mp: 'dorados', fp: 'doradas' },
+    'dorada': { m: 'dorado', f: 'dorada', mp: 'dorados', fp: 'doradas' },
+    'plateado': { m: 'plateado', f: 'plateada', mp: 'plateados', fp: 'plateadas' },
+    'plateada': { m: 'plateado', f: 'plateada', mp: 'plateados', fp: 'plateadas' },
+    'plateados': { m: 'plateado', f: 'plateada', mp: 'plateados', fp: 'plateadas' },
+    'plateadas': { m: 'plateado', f: 'plateada', mp: 'plateados', fp: 'plateadas' },
   };
   
-  const correctColor = colorMap[newColor.toLowerCase()] || newColor;
+  const root = colorRoots[baseColor.toLowerCase()];
+  if (!root) return baseColor;
   
-  // Reemplazar colores antiguos por el nuevo con concordancia
-  const oldColors = ['azules', 'azul', 'rojas', 'rojos', 'rojo', 'negras', 'negros', 'negro', 'blancas', 'blancos', 'blanco', 'transparentes', 'transparente', 'ahumadas', 'ahumados', 'ahumado'];
-  
+  const key = plural ? (gender === 'f' ? 'fp' : 'mp') : (gender === 'f' ? 'f' : 'm');
+  return root[key];
+}
+
+// Reemplaza colores en un texto manteniendo concordancia
+function replaceColorsInText(text, newColors, product) {
   let result = text;
-  oldColors.forEach(oldColor => {
-    const regex = new RegExp(`\\b${oldColor}\\b`, 'gi');
-    result = result.replace(regex, correctColor);
-  });
+  const allOldColors = ['rojo', 'roja', 'rojos', 'rojas', 'rosa', 'rosas', 'azul', 'azules', 'negro', 'negra', 'negros', 'negras', 'blanco', 'blanca', 'blancos', 'blancas', 'verde', 'verdes', 'gris', 'grises', 'marrón', 'marrones', 'beige', 'transparente', 'transparentes', 'ahumado', 'ahumada', 'ahumados', 'ahumadas', 'dorado', 'dorada', 'dorados', 'doradas', 'plateado', 'plateada', 'plateados', 'plateadas'];
+  
+  for (const newColor of newColors) {
+    const adapted = adaptColor(newColor, product.gender, product.plural);
+    for (const oldColor of allOldColors) {
+      if (oldColor.toLowerCase() === newColor.toLowerCase()) continue;
+      const regex = new RegExp(`\\b${oldColor}\\b`, 'gi');
+      result = result.replace(regex, adapted);
+    }
+  }
   
   return result;
 }
 
-// Función para generar un título específico
-function generateSpecificTitle(presetText, newColor, condition) {
-  // Extraer marca y modelo del preset
-  const brandMatch = presetText.match(/\b(Oakley|Nike|Adidas|Gucci|Chrome Hearts|Ray-Ban|Puma|Reebok)\b/i);
-  const modelMatch = presetText.match(/\b(Speedcraft|Air Max|Stan Smith|S3|501|Ultraboost)\b/i);
-  const productMatch = presetText.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta|falda|bolsa)\b/i);
+// Genera un título específico desde el preset
+function buildTitle(presetText, newColors, condition, product, brandModel) {
+  const parts = [];
   
-  const product = productMatch ? productMatch[0] : 'Producto';
-  const brand = brandMatch ? brandMatch[0] : '';
-  const model = modelMatch ? modelMatch[0] : '';
-  const color = newColor || '';
-  const state = condition ? condition.toUpperCase() : '';
+  // Producto (capitalizado)
+  const productName = product.name.charAt(0).toUpperCase() + product.name.slice(1);
+  parts.push(product.plural && !productName.endsWith('s') ? productName + 's' : productName);
   
-  // Construir título
-  const parts = [product, brand, model, color, state].filter(p => p);
+  // Marca
+  if (brandModel.brand) parts.push(brandModel.brand);
+  
+  // Modelo
+  if (brandModel.model) parts.push(brandModel.model);
+  
+  // Colores nuevos (adaptados)
+  if (newColors && newColors.length > 0) {
+    const adaptedColors = newColors.map(c => adaptColor(c, product.gender, product.plural));
+    parts.push(adaptedColors.join(' y '));
+  }
+  
+  // Estado
+  if (condition) {
+    parts.push(condition.toUpperCase());
+  }
+  
   return parts.join(' ').substring(0, 60);
 }
+
+// ============ API PRINCIPAL ============
 
 export async function POST(req) {
   try {
@@ -87,41 +192,51 @@ export async function POST(req) {
     
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      return Response.json({ error: 'Falta GEMINI_API_KEY en Vercel' }, { status: 500 });
+      return Response.json({ error: 'Falta GEMINI_API_KEY' }, { status: 500 });
     }
 
     const langs = Array.isArray(languages) && languages.length > 0 ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: '🇸 Español', en: ' English', fr: '🇷 Français' };
+    const langNames = { es: '🇪🇸 Español', en: '🇧 English', fr: '🇷 Français' };
+
+    // Detectar qué cambia
+    const product = presetText ? detectProduct(presetText) : detectProduct(shortDesc || '');
+    const brandModel = presetText ? detectBrandModel(presetText) : { brand: '', model: '' };
+    
+    // Extraer colores de los cambios
+    const newColors = [];
+    if (shortDesc) {
+      const colorMatches = shortDesc.match(/\b(rojo|rosa|azul|negro|blanco|verde|gris|marrón|beige|camaleón|transparente|ahumado|dorado|plateado)s?\b/gi);
+      if (colorMatches) {
+        colorMatches.forEach(c => {
+          const base = c.toLowerCase().replace(/s$/, '');
+          if (!newColors.includes(base)) newColors.push(base);
+        });
+      }
+    }
+
+    console.log('Análisis:', { product: product.name, gender: product.gender, plural: product.plural, brand: brandModel.brand, model: brandModel.model, newColors });
 
     let prompt = '';
     
     if (presetText && presetText.trim().length > 10) {
-      // MODO PRESET: Simple y directo
-      prompt = `Eres un editor de anuncios de segunda mano. Reescribe el siguiente preset aplicando los cambios indicados.
+      // MODO PRESET
+      prompt = `Reescribe el siguiente preset de anuncio aplicando los cambios indicados. Mantén EXACTAMENTE la misma estructura, formato, viñetas y todos los idiomas.
 
-REGLAS:
-1. Mantén TODA la estructura y formato del preset original.
-2. Solo modifica lo que te piden en los cambios.
-3. Si te piden cambiar el color, reemplaza TODAS las menciones del color antiguo por el nuevo.
-4. El título debe describir el producto con los cambios aplicados (marca, modelo, color nuevo, estado).
-
-PRESET ORIGINAL:
+PRESET:
 ${presetText}
 
 CAMBIOS:
-- ${shortDesc || 'Ninguno'}
-- Precio: ${price || 'Mantener'}
-- Estado: ${condition || 'Mantener'}
+${shortDesc ? `- ${shortDesc}` : '- Ninguno'}
+${price ? `- Nuevo precio: ${price}€` : ''}
+${condition ? `- Nuevo estado: ${condition}` : ''}
 
-Devuelve SOLO JSON:
-{
-  "title": "título del producto con cambios (español, máx 60 chars)",
-  "description": "preset reescrito con los cambios aplicados"
-}`;
+Si hay cambio de color, reemplaza TODAS las menciones del color antiguo por el nuevo en todos los idiomas.
+Si no hay cambios, devuelve el preset exactamente igual.
+
+Devuelve SOLO JSON: {"title": "título en español con los cambios", "description": "preset reescrito con los cambios"}`;
     } else {
-      // MODO SIN PRESET
       const langList = langs.map(l => langNames[l] || l).join(' / ');
-      prompt = `Genera un anuncio de segunda mano profesional.
+      prompt = `Genera un anuncio de segunda mano.
 
 REGLAS:
 1. title: Español, máx 60 chars. Marca, modelo, color, estado.
@@ -142,15 +257,11 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
     const parts = [{ text: prompt }];
     if (imageBase64) {
       const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-      parts.push({
-        inlineData: { mimeType: "image/jpeg", data: cleanBase64 }
-      });
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: cleanBase64 } });
     }
 
-    const models = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-8b'
-    ];
+    const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-8b'];
+    let aiResult = null;
 
     for (const model of models) {
       try {
@@ -158,22 +269,14 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: parts }],
-            generationConfig: { 
-              temperature: 0.2,
-              maxOutputTokens: 2000,
-              responseMimeType: "application/json"
-            }
+            contents: [{ parts }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 2000, responseMimeType: "application/json" }
           })
         });
 
         const data = await response.json();
-
         if (!response.ok) {
-          if (response.status === 429 || response.status === 503) {
-            await sleep(1500);
-            continue;
-          }
+          if (response.status === 429 || response.status === 503) { await sleep(1500); continue; }
           throw new Error(data.error?.message || `Error ${response.status}`);
         }
 
@@ -182,84 +285,82 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
 
         const parsed = extractJson(content);
         if (parsed && parsed.title && parsed.description) {
-          // POST-PROCESAMIENTO: Corregir título y concordancia
-          let finalTitle = parsed.title;
-          let finalDesc = parsed.description;
-          
-          // Si hay preset y cambios de color, aplicar correcciones
-          if (presetText && shortDesc) {
-            const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado)/i);
-            const productMatch = presetText.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)\b/i);
-            
-            if (colorMatch && productMatch) {
-              // Corregir concordancia en la descripción
-              finalDesc = fixGenderAgreement(finalDesc, productMatch[0], colorMatch[0]);
-              
-              // Generar título específico si el actual es genérico
-              if (finalTitle.toLowerCase().includes('producto') || finalTitle.length < 20) {
-                finalTitle = generateSpecificTitle(presetText, colorMatch[0], condition);
-              }
-            }
-          }
-          
-          // Actualizar precio si cambió
-          if (price) {
-            finalDesc = finalDesc.replace(/(\d+[.,]?\d*)\s*€/g, `${price} €`);
-          }
-          
-          // Actualizar estado si cambió
-          if (condition) {
-            const oldStates = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'NUEVAS', 'NUEVOS', 'NUEVO'];
-            oldStates.forEach(s => {
-              finalDesc = finalDesc.replace(new RegExp(s, 'gi'), condition.toUpperCase());
-            });
-          }
-          
-          return Response.json({
-            title: finalTitle.substring(0, 60),
-            description: finalDesc
-          });
+          aiResult = parsed;
+          break;
         }
-
       } catch (error) {
-        console.log(`Error con ${model}:`, error.message);
+        console.log(`Error ${model}:`, error.message);
         continue;
       }
     }
 
-    // FALLBACK: Aplicar cambios manualmente al preset
-    let fallbackDesc = presetText || '';
-    let fallbackTitle = '';
-    
-    if (shortDesc && fallbackDesc) {
-      const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado)/i);
-      const productMatch = fallbackDesc.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)\b/i);
+    // ============ POST-PROCESAMIENTO (siempre se aplica) ============
+    let finalTitle = '';
+    let finalDesc = '';
+
+    if (presetText && presetText.trim().length > 10 && aiResult) {
+      // MODO PRESET: usar la descripción de la IA pero corregir título y colores
+      finalDesc = aiResult.description;
       
-      if (colorMatch && productMatch) {
-        fallbackDesc = fixGenderAgreement(fallbackDesc, productMatch[0], colorMatch[0]);
-        fallbackTitle = generateSpecificTitle(fallbackDesc, colorMatch[0], condition);
+      // Si la IA no cambió los colores, el código lo hace
+      if (newColors.length > 0) {
+        finalDesc = replaceColorsInText(finalDesc, newColors, product);
       }
+      
+      // Actualizar precio
+      if (price) {
+        finalDesc = finalDesc.replace(/(\d+[.,]?\d*)\s*[€EUR]/gi, `${price} €`);
+        // Si no había precio, añadirlo al final de cada bloque
+        if (!finalDesc.includes('€') && !finalDesc.includes('Price') && !finalDesc.includes('Prix')) {
+          const priceByLang = { es: `💰 Precio: ${price} €`, en: `💰 Price: €${price}`, fr: `💰 Prix : ${price} €` };
+          finalDesc = finalDesc.split('────').map(block => {
+            const lang = langs.find(l => block.includes(langNames[l]?.split(' ')[1] || ''));
+            return block.trim() + '\n' + (priceByLang[lang] || priceByLang.es);
+          }).join('\n──────────\n');
+        }
+      }
+      
+      // Actualizar estado
+      if (condition) {
+        const oldStates = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'NUEVAS', 'NUEVOS', 'NUEVO', 'NEW WITHOUT TAGS', 'NEW WITH TAGS', 'VERY GOOD', 'GOOD', 'NEUF', 'TRÈS BON'];
+        oldStates.forEach(s => {
+          finalDesc = finalDesc.replace(new RegExp(s, 'gi'), condition.toUpperCase());
+        });
+      }
+      
+      // Título: SIEMPRE generado por el código, nunca por la IA
+      finalTitle = buildTitle(presetText, newColors.length > 0 ? newColors : null, condition, product, brandModel);
+      
+    } else if (aiResult) {
+      // MODO SIN PRESET: usar lo que devolvió la IA
+      finalTitle = aiResult.title;
+      finalDesc = aiResult.description;
+      
+      // Corregir título si es genérico
+      if (finalTitle.toLowerCase().includes('producto') || finalTitle.length < 15) {
+        finalTitle = buildTitle(shortDesc || '', newColors, condition, product, brandModel);
+      }
+    } else {
+      // FALLBACK TOTAL: sin IA
+      console.log('⚠️ Sin respuesta de IA, usando fallback');
+      const cond = condition ? condition.toUpperCase() : 'ESTADO NO ESPECIFICADO';
+      const productText = shortDesc || presetText || 'Producto';
+      finalDesc = langs.map(l => {
+        const name = langNames[l] || l;
+        const priceText = price ? (l === 'en' ? `💰 Price: €${price}` : (l === 'fr' ? `💰 Prix : ${price} €` : `💰 Precio: ${price} €`)) : '';
+        return `${name}\n${cond}\n✔ ${productText}\n✔ Revisar fotos para más detalles\n✔ Envíos rápidos y seguros\n${priceText}`;
+      }).join('\n──────────\n');
+      finalTitle = buildTitle(shortDesc || presetText || '', newColors, condition, product, brandModel);
     }
-    
-    if (price && fallbackDesc) {
-      fallbackDesc = fallbackDesc.replace(/(\d+[.,]?\d*)\s*€/g, `${price} €`);
-    }
-    
-    if (condition && fallbackDesc) {
-      const oldStates = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'NUEVAS', 'NUEVOS', 'NUEVO'];
-      oldStates.forEach(s => {
-        fallbackDesc = fallbackDesc.replace(new RegExp(s, 'gi'), condition.toUpperCase());
-      });
-    }
-    
-    if (!fallbackTitle) {
-      fallbackTitle = shortDesc ? shortDesc.substring(0, 60) : (presetText ? presetText.split('\n')[0].substring(0, 60) : 'Producto en venta');
+
+    // Última validación: si el título sigue siendo malo, regenerarlo
+    if (finalTitle.toLowerCase().startsWith('es la misma') || finalTitle.toLowerCase().startsWith('son las mismas') || finalTitle.toLowerCase().includes('producto en color')) {
+      finalTitle = buildTitle(presetText || shortDesc || '', newColors, condition, product, brandModel);
     }
 
     return Response.json({
-      title: fallbackTitle,
-      description: fallbackDesc || 'Sin descripción',
-      _warning: "Generado localmente"
+      title: finalTitle.substring(0, 60),
+      description: finalDesc
     });
 
   } catch (error) {
