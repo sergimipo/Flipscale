@@ -3,10 +3,8 @@ export const maxDuration = 60;
 function extractJson(text) {
   if (!text || typeof text !== 'string') return null;
   
-  // 1. Limpiar markdown
   let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   
-  // 2. Intentar parseo directo
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   
@@ -19,7 +17,6 @@ function extractJson(text) {
     }
   }
   
-  // 3. Fallback con Regex por si el JSON está ligeramente roto
   const titleMatch = clean.match(/"title"\s*:\s*"([^"]*)"/i);
   const descMatch = clean.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
   
@@ -43,7 +40,7 @@ export async function POST(req) {
     }
 
     const langs = Array.isArray(languages) ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: '🇪🇸 Español', en: '🇬🇧 English', fr: '🇫🇷 Français' };
+    const langNames = { es: '🇪🇸 Español', en: '🇧 English', fr: '🇷 Français' };
     const langList = langs.map(l => langNames[l] || l).join(', ');
 
     const prompt = `Eres un experto en ventas de segunda mano (Vinted/Wallapop).
@@ -66,12 +63,9 @@ DATOS DEL PRODUCTO:
 
 Si faltan datos, infiérelos de forma coherente y profesional.`;
 
-    // Construir el payload para Gemini
     const parts = [{ text: prompt }];
     
-    // Si hay imagen, añadirla en el formato que espera Gemini
     if (imageBase64) {
-      // Gemini necesita el base64 limpio, sin el prefijo "data:image/jpeg;base64,"
       const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
       parts.push({
         inlineData: {
@@ -81,9 +75,10 @@ Si faltan datos, infiérelos de forma coherente y profesional.`;
       });
     }
 
-    console.log('Enviando petición a Google Gemini...');
+    console.log('Enviando petición a Google Gemini 2.0 Flash...');
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // MODELO ACTUALIZADO: gemini-2.0-flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json' 
@@ -93,7 +88,7 @@ Si faltan datos, infiérelos de forma coherente y profesional.`;
         generationConfig: { 
           temperature: 0.3, 
           maxOutputTokens: 1500,
-          responseMimeType: "application/json" // Forzamos a Gemini a devolver JSON
+          responseMimeType: "application/json"
         }
       })
     });
@@ -113,7 +108,7 @@ Si faltan datos, infiérelos de forma coherente y profesional.`;
       return Response.json({ error: 'La IA no devolvió contenido' }, { status: 500 });
     }
 
-    console.log('Respuesta de Gemini recibida correctamente');
+    console.log('✅ Respuesta de Gemini 2.0 Flash recibida correctamente');
 
     const parsed = extractJson(content);
     
@@ -124,7 +119,6 @@ Si faltan datos, infiérelos de forma coherente y profesional.`;
       });
     }
 
-    // Si el parseo falla, devolvemos el texto crudo para que puedas verlo
     return Response.json({ 
       error: 'Formato no válido', 
       rawResponse: content 
