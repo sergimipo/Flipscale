@@ -31,6 +31,56 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Función para corregir concordancia gramatical básica
+function fixGenderAgreement(text, product, newColor) {
+  // Detectar si el producto es femenino
+  const feminineProducts = ['gafas', 'camiseta', 'zapatillas', 'sudadera', 'chaqueta', 'falda', 'bolsa', 'mochila'];
+  const isFeminine = feminineProducts.some(p => product.toLowerCase().includes(p));
+  
+  // Mapa de colores con concordancia
+  const colorMap = {
+    'rojo': isFeminine ? 'rojas' : 'rojos',
+    'azul': isFeminine ? 'azules' : 'azules',
+    'negro': isFeminine ? 'negras' : 'negros',
+    'blanco': isFeminine ? 'blancas' : 'blancos',
+    'verde': isFeminine ? 'verdes' : 'verdes',
+    'transparente': isFeminine ? 'transparentes' : 'transparentes',
+    'ahumado': isFeminine ? 'ahumadas' : 'ahumados',
+    'camaleón': 'camaleón'
+  };
+  
+  const correctColor = colorMap[newColor.toLowerCase()] || newColor;
+  
+  // Reemplazar colores antiguos por el nuevo con concordancia
+  const oldColors = ['azules', 'azul', 'rojas', 'rojos', 'rojo', 'negras', 'negros', 'negro', 'blancas', 'blancos', 'blanco', 'transparentes', 'transparente', 'ahumadas', 'ahumados', 'ahumado'];
+  
+  let result = text;
+  oldColors.forEach(oldColor => {
+    const regex = new RegExp(`\\b${oldColor}\\b`, 'gi');
+    result = result.replace(regex, correctColor);
+  });
+  
+  return result;
+}
+
+// Función para generar un título específico
+function generateSpecificTitle(presetText, newColor, condition) {
+  // Extraer marca y modelo del preset
+  const brandMatch = presetText.match(/\b(Oakley|Nike|Adidas|Gucci|Chrome Hearts|Ray-Ban|Puma|Reebok)\b/i);
+  const modelMatch = presetText.match(/\b(Speedcraft|Air Max|Stan Smith|S3|501|Ultraboost)\b/i);
+  const productMatch = presetText.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta|falda|bolsa)\b/i);
+  
+  const product = productMatch ? productMatch[0] : 'Producto';
+  const brand = brandMatch ? brandMatch[0] : '';
+  const model = modelMatch ? modelMatch[0] : '';
+  const color = newColor || '';
+  const state = condition ? condition.toUpperCase() : '';
+  
+  // Construir título
+  const parts = [product, brand, model, color, state].filter(p => p);
+  return parts.join(' ').substring(0, 60);
+}
+
 export async function POST(req) {
   try {
     const { imageBase64, shortDesc, price, condition, languages, presetText } = await req.json();
@@ -41,62 +91,45 @@ export async function POST(req) {
     }
 
     const langs = Array.isArray(languages) && languages.length > 0 ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: '🇪🇸 Español', en: '🇧 English', fr: '🇷 Français' };
+    const langNames = { es: '🇸 Español', en: ' English', fr: '🇷 Français' };
 
     let prompt = '';
     
     if (presetText && presetText.trim().length > 10) {
-      // MODO PRESET: Análisis gramatical + sustitución inteligente
-      prompt = `Eres un editor profesional de anuncios de segunda mano. Tu tarea es EDITAR un preset aplicando cambios con concordancia gramatical correcta.
-
-ANÁLISIS GRAMATICAL OBLIGATORIO:
-1. Identifica el género del producto (gafas = femenino, pantalones = masculino, etc.)
-2. Ajusta los adjetivos de color al género correcto (gafas rojas, no "gafas rojos")
-3. Mantén la concordancia en plural/singular (gafas rojas, no "gafa roja")
-
-REGLAS CRÍTICAS:
-1. TÍTULO: Debe ser [Producto] [Marca] [Modelo] [Color nuevo] [Estado]. NUNCA uses "Producto en color X".
-   Ejemplo correcto: "Gafas Oakley Speedcraft S3 Rojas Nuevas"
-   Ejemplo incorrecto: "Producto en color rojo"
-2. COLOR: Si el cambio dice "en rojo", reemplaza TODAS las menciones de color manteniendo concordancia:
-   - "azules y transparentes" → "rojas y transparentes" (gafas = femenino)
-   - "1 plateada" → "1 roja" (lente = femenino)
-3. MANTÉN toda la estructura del preset: viñetas, formato, separadores, todos los idiomas.
-4. Si no hay cambios de color, mantén el color original del preset.
-
-EJEMPLO COMPLETO:
-PRESET: "Gafas Oakley Speedcraft S3 azules y transparentes. NUEVAS, sin uso. ✓ Modelo Speedcraft S3 ✓ Azules y transparentes ✓ Incluye 1 plateada efecto espejo"
-CAMBIO: "en rojo"
-RESULTADO CORRECTO:
-- Título: "Gafas Oakley Speedcraft S3 Rojas Nuevas"
-- Descripción: "Gafas Oakley Speedcraft S3 rojas y transparentes. NUEVAS, sin uso. ✓ Modelo Speedcraft S3 ✓ Rojas y transparentes ✓ Incluye 1 roja efecto espejo"
-
-PRESET A EDITAR:
-${presetText}
-
-CAMBIOS A APLICAR:
-- ${shortDesc || 'Ninguno, mantener todo igual'}
-- Precio: ${price || 'Mantener el actual'}
-- Estado: ${condition || 'Mantener el actual'}
-
-Devuelve SOLO un JSON:
-{
-  "title": "título específico con marca, modelo, color y estado (español, máx 60 chars)",
-  "description": "preset completo con cambios aplicados manteniendo concordancia gramatical en todos los idiomas"
-}`;
-    } else {
-      // MODO SIN PRESET: Generar desde cero
-      const langList = langs.map(l => langNames[l] || l).join(' / ');
-      prompt = `Eres un experto en ventas de segunda mano. Genera un anuncio profesional.
+      // MODO PRESET: Simple y directo
+      prompt = `Eres un editor de anuncios de segunda mano. Reescribe el siguiente preset aplicando los cambios indicados.
 
 REGLAS:
-1. title: Español, máx 60 caracteres. [Producto] [Marca] [Modelo] [Color] [Estado]. SIN "Producto en color X".
-2. description: Un string con saltos de línea (\\n) en: ${langList}.
-   - Cada bloque: bandera + nombre del idioma.
-   - Segunda línea: ESTADO EN MAYÚSCULAS.
-   - 3-6 viñetas con ✔ describiendo el producto REAL.
-   - Última línea: precio (💰 Precio: X € / 💰 Price: €X / 💰 Prix : X €).
-   - Separa bloques con: ──────────
+1. Mantén TODA la estructura y formato del preset original.
+2. Solo modifica lo que te piden en los cambios.
+3. Si te piden cambiar el color, reemplaza TODAS las menciones del color antiguo por el nuevo.
+4. El título debe describir el producto con los cambios aplicados (marca, modelo, color nuevo, estado).
+
+PRESET ORIGINAL:
+${presetText}
+
+CAMBIOS:
+- ${shortDesc || 'Ninguno'}
+- Precio: ${price || 'Mantener'}
+- Estado: ${condition || 'Mantener'}
+
+Devuelve SOLO JSON:
+{
+  "title": "título del producto con cambios (español, máx 60 chars)",
+  "description": "preset reescrito con los cambios aplicados"
+}`;
+    } else {
+      // MODO SIN PRESET
+      const langList = langs.map(l => langNames[l] || l).join(' / ');
+      prompt = `Genera un anuncio de segunda mano profesional.
+
+REGLAS:
+1. title: Español, máx 60 chars. Marca, modelo, color, estado.
+2. description: String con saltos de línea en: ${langList}.
+   - Bloques por idioma separados por ──────────
+   - Estado en MAYÚSCULAS
+   - 3-6 viñetas con ✔
+   - Precio al final
 
 DATOS:
 - Producto: ${shortDesc || 'No especificado'}
@@ -116,13 +149,10 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
 
     const models = [
       'gemini-1.5-flash-latest',
-      'gemini-1.5-flash-8b',
-      'gemini-2.0-flash-exp'
+      'gemini-1.5-flash-8b'
     ];
 
     for (const model of models) {
-      console.log(`\n🔄 Probando: ${model}`);
-      
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
@@ -130,17 +160,9 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
           body: JSON.stringify({
             contents: [{ parts: parts }],
             generationConfig: { 
-              temperature: 0.1,
+              temperature: 0.2,
               maxOutputTokens: 2000,
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "OBJECT",
-                properties: {
-                  title: { type: "STRING" },
-                  description: { type: "STRING" }
-                },
-                required: ["title", "description"]
-              }
+              responseMimeType: "application/json"
             }
           })
         });
@@ -148,93 +170,74 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
         const data = await response.json();
 
         if (!response.ok) {
-          const errorMsg = data.error?.message || '';
-          if (response.status === 404 || response.status === 429 || response.status === 503 || 
-              errorMsg.includes('high demand') || errorMsg.includes('resource_exhausted')) {
-            console.log(`⚠️ ${model} no disponible. Siguiente...`);
+          if (response.status === 429 || response.status === 503) {
             await sleep(1500);
             continue;
           }
-          throw new Error(data.error?.message || `Error HTTP ${response.status}`);
+          throw new Error(data.error?.message || `Error ${response.status}`);
         }
 
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) continue;
 
-        console.log(`✅ Éxito con ${model}`);
-        console.log('Respuesta:', content.substring(0, 1000));
-
         const parsed = extractJson(content);
         if (parsed && parsed.title && parsed.description) {
-          // VALIDACIÓN 1: El título NO debe ser genérico
-          if (parsed.title.toLowerCase().includes('producto en color') || 
-              parsed.title.toLowerCase().includes('producto en')) {
-            console.log('⚠️ Título genérico, rechazando');
-            continue;
+          // POST-PROCESAMIENTO: Corregir título y concordancia
+          let finalTitle = parsed.title;
+          let finalDesc = parsed.description;
+          
+          // Si hay preset y cambios de color, aplicar correcciones
+          if (presetText && shortDesc) {
+            const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado)/i);
+            const productMatch = presetText.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)\b/i);
+            
+            if (colorMatch && productMatch) {
+              // Corregir concordancia en la descripción
+              finalDesc = fixGenderAgreement(finalDesc, productMatch[0], colorMatch[0]);
+              
+              // Generar título específico si el actual es genérico
+              if (finalTitle.toLowerCase().includes('producto') || finalTitle.length < 20) {
+                finalTitle = generateSpecificTitle(presetText, colorMatch[0], condition);
+              }
+            }
           }
           
-          // VALIDACIÓN 2: El título debe tener al menos 3 palabras específicas
-          const titleWords = parsed.title.split(' ').filter(w => w.length > 2);
-          if (titleWords.length < 3) {
-            console.log('️ Título demasiado corto o genérico, rechazando');
-            continue;
+          // Actualizar precio si cambió
+          if (price) {
+            finalDesc = finalDesc.replace(/(\d+[.,]?\d*)\s*€/g, `${price} €`);
           }
           
-          // VALIDACIÓN 3: No debe haber errores gramaticales obvios como "rojoes"
-          if (parsed.description.match(/rojoes|azuleses|negroses/i)) {
-            console.log('⚠️ Errores gramaticales detectados, rechazando');
-            continue;
+          // Actualizar estado si cambió
+          if (condition) {
+            const oldStates = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'NUEVAS', 'NUEVOS', 'NUEVO'];
+            oldStates.forEach(s => {
+              finalDesc = finalDesc.replace(new RegExp(s, 'gi'), condition.toUpperCase());
+            });
           }
           
           return Response.json({
-            title: String(parsed.title).trim().substring(0, 60),
-            description: String(parsed.description).trim()
+            title: finalTitle.substring(0, 60),
+            description: finalDesc
           });
         }
 
       } catch (error) {
-        if (error.message.includes('API key not valid') || error.message.includes('not found')) {
-          throw error;
-        }
-        console.log(`⚠️ Error con ${model}:`, error.message);
+        console.log(`Error con ${model}:`, error.message);
         continue;
       }
     }
 
-    // FALLBACK LOCAL: Aplicar cambios con concordancia
-    console.log('⚠️ IA saturada. Aplicando cambios manualmente con concordancia.');
-    
+    // FALLBACK: Aplicar cambios manualmente al preset
     let fallbackDesc = presetText || '';
     let fallbackTitle = '';
     
     if (shortDesc && fallbackDesc) {
-      // Detectar el producto y su género
-      const productMatch = fallbackDesc.match(/(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)/i);
-      const isFeminine = productMatch && ['gafas', 'camiseta', 'zapatillas', 'sudadera', 'chaqueta'].includes(productMatch[0].toLowerCase());
-      
-      // Detectar color nuevo
       const colorMatch = shortDesc.match(/(rojo|azul|negro|blanco|verde|camaleón|transparente|ahumado)/i);
+      const productMatch = fallbackDesc.match(/\b(gafas|pantalones|camiseta|zapatillas|sudadera|chaqueta)\b/i);
       
       if (colorMatch && productMatch) {
-        const newColor = colorMatch[0];
-        // Ajustar concordancia
-        const colorAdjective = isFeminine ? 
-          (newColor === 'rojo' ? 'rojas' : newColor === 'azul' ? 'azules' : newColor + 's') : 
-          newColor;
-        
-        // Reemplazar colores manteniendo concordancia
-        const oldColors = ['azules', 'azul', 'rojas', 'rojo', 'negras', 'negro', 'transparentes', 'transparente'];
-        oldColors.forEach(c => {
-          const regex = new RegExp(c, 'gi');
-          fallbackDesc = fallbackDesc.replace(regex, colorAdjective);
-        });
-        
-        // Generar título específico
-        const brandMatch = fallbackDesc.match(/(Oakley|Nike|Adidas|Gucci|Chrome Hearts)/i);
-        const modelMatch = fallbackDesc.match(/(Speedcraft|Air Max|Stan Smith|S3)/i);
-        const stateMatch = fallbackDesc.match(/(NUEVAS|NUEVO|MUY BUENO|BUENO)/i);
-        
-        fallbackTitle = `${productMatch[0]} ${brandMatch ? brandMatch[0] : ''} ${modelMatch ? modelMatch[0] : ''} ${colorAdjective} ${stateMatch ? stateMatch[0] : ''}`.trim().substring(0, 60);
+        fallbackDesc = fixGenderAgreement(fallbackDesc, productMatch[0], colorMatch[0]);
+        fallbackTitle = generateSpecificTitle(fallbackDesc, colorMatch[0], condition);
       }
     }
     
@@ -255,12 +258,12 @@ Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
 
     return Response.json({
       title: fallbackTitle,
-      description: fallbackDesc || 'Sin descripción disponible',
-      _warning: "Generado con plantilla local"
+      description: fallbackDesc || 'Sin descripción',
+      _warning: "Generado localmente"
     });
 
   } catch (error) {
-    console.error('ERROR GLOBAL:', error);
-    return Response.json({ error: `Error de IA: ${error.message}` }, { status: 500 });
+    console.error('ERROR:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
