@@ -3,7 +3,6 @@ export const maxDuration = 60;
 function extractJson(text) {
   if (!text || typeof text !== 'string') return null;
   
-  // Intento 1: JSON directo
   let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
@@ -15,7 +14,6 @@ function extractJson(text) {
     } catch (e) {}
   }
   
-  // Intento 2: Regex para title y description
   const titleMatch = clean.match(/"title"\s*:\s*"([^"]*)"/i);
   const descMatch = clean.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i);
   
@@ -27,125 +25,6 @@ function extractJson(text) {
   }
   
   return null;
-}
-
-// VALIDACIÓN Y LIMPIEZA POST-PROCESAMIENTO
-function validateAndClean(title, description, langs, langNames, condition, price, presetText) {
-  let cleanTitle = String(title || '').trim();
-  let cleanDesc = String(description || '').trim();
-  
-  // Título: máximo 60 caracteres, sin emojis
-  if (cleanTitle.length > 60) {
-    cleanTitle = cleanTitle.substring(0, 57) + '...';
-  }
-  cleanTitle = cleanTitle.replace(/[✨🔥⭐]/g, '').trim();
-  
-  // Normalizar separadores: cualquier secuencia de guiones o líneas → ──────────
-  cleanDesc = cleanDesc.replace(/[-─_]{3,}/g, '──────────');
-  
-  // Dividir en bloques por separador
-  const blocks = cleanDesc.split('──────────').map(b => b.trim()).filter(b => b.length > 0);
-  
-  // Si no hay bloques, reconstruir desde cero
-  if (blocks.length === 0) {
-    const cond = condition ? condition.toUpperCase() : (presetText && presetText.match(/(NUEVO|MUY BUENO|BUENO|SATISFACTORIO)/i) ? presetText.match(/(NUEVO|MUY BUENO|BUENO|SATISFACTORIO)/i)[0].toUpperCase() : 'ESTADO NO ESPECIFICADO');
-    const priceText = price ? '💰 Precio: ' + price + ' €' : '';
-    const product = presetText || 'Producto en buen estado';
-    
-    cleanDesc = langs.map(l => {
-      const name = langNames[l] || l;
-      return `${name}\n${cond}\n✔ ${product}\n${priceText}`;
-    }).join('\n──────────\n');
-    
-    return { title: cleanTitle, description: cleanDesc };
-  }
-  
-  // Procesar cada bloque
-  const fixedBlocks = blocks.map((block, idx) => {
-    const lang = langs[idx] || 'es';
-    const langName = langNames[lang] || lang;
-    
-    // Asegurar que empieza con el nombre del idioma
-    let lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    // Si la primera línea no es el nombre del idioma, añadirlo
-    if (!lines[0]?.includes(langName.replace(/[🇪🇸🇬🇫🇷]/g, '').trim())) {
-      lines.unshift(langName);
-    }
-    
-    // Buscar el estado (línea en MAYÚSCULAS después del nombre del idioma)
-    let hasCondition = false;
-    const condPatterns = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'ESTADO NO ESPECIFICADO'];
-    
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].toUpperCase() === lines[i] && lines[i].length > 3 && lines[i].length < 50) {
-        hasCondition = true;
-        // Si hay condición nueva, reemplazar
-        if (condition) {
-          lines[i] = condition.toUpperCase();
-        }
-        break;
-      }
-    }
-    
-    // Si no hay estado y hay condición nueva, añadirlo
-    if (!hasCondition && condition) {
-      lines.splice(1, 0, condition.toUpperCase());
-    }
-    
-    // Si no hay estado y no hay condición nueva, buscar en el preset
-    if (!hasCondition && !condition && presetText) {
-      const presetCond = presetText.match(/(NUEVO CON ETIQUETAS|NUEVO SIN ETIQUETAS|MUY BUENO|BUENO|SATISFACTORIO)/i);
-      if (presetCond) {
-        lines.splice(1, 0, presetCond[0].toUpperCase());
-      } else {
-        lines.splice(1, 0, 'ESTADO NO ESPECIFICADO');
-      }
-    }
-    
-    // Asegurar que hay viñetas con ✔
-    const checkmarkLines = lines.filter(l => l.startsWith('✔'));
-    if (checkmarkLines.length === 0) {
-      // Si no hay viñetas, convertir las líneas de texto en viñetas
-      const contentLines = lines.filter(l => 
-        !l.includes('💰') && 
-        !l.toUpperCase().match(/^(NUEVO|MUY BUENO|BUENO|SATISFACTORIO|ESTADO)/) &&
-        !l.includes('🇪') && !l.includes('🇬') && !l.includes('')
-      );
-      const newLines = contentLines.map(l => '✔ ' + l.replace(/^[✔✓-]\s*/, ''));
-      // Reemplazar las líneas de contenido con viñetas
-      lines = lines.filter(l => 
-        l.includes('💰') || 
-        l.toUpperCase().match(/^(NUEVO|MUY BUENO|BUENO|SATISFACTORIO|ESTADO)/) ||
-        l.includes('') || l.includes('🇬') || l.includes('🇫')
-      );
-      lines.splice(2, 0, ...newLines);
-    }
-    
-    // Asegurar que el precio está al final
-    const pricePatterns = {
-      'es': `💰 Precio: ${price} €`,
-      'en': `💰 Price: €${price}`,
-      'fr': `💰 Prix : ${price} €`
-    };
-    
-    if (price) {
-      const priceText = pricePatterns[lang] || pricePatterns['es'];
-      // Eliminar cualquier línea de precio existente
-      lines = lines.filter(l => !l.includes('💰') && !l.toLowerCase().includes('price') && !l.toLowerCase().includes('prix'));
-      // Añadir precio al final
-      lines.push(priceText);
-    } else {
-      // Si no hay precio, eliminar líneas de precio
-      lines = lines.filter(l => !l.includes('💰') && !l.toLowerCase().includes('price') && !l.toLowerCase().includes('prix'));
-    }
-    
-    return lines.join('\n');
-  });
-  
-  cleanDesc = fixedBlocks.join('\n──────────\n');
-  
-  return { title: cleanTitle, description: cleanDesc };
 }
 
 function sleep(ms) {
@@ -162,63 +41,57 @@ export async function POST(req) {
     }
 
     const langs = Array.isArray(languages) && languages.length > 0 ? languages : ['es', 'en', 'fr'];
-    const langNames = { es: '🇪 Español', en: '🇬 English', fr: '🇫🇷 Français' };
-    const langList = langs.map(l => langNames[l] || l).join(' / ');
+    const langNames = { es: '🇪🇸 Español', en: '🇬🇧 English', fr: '🇫🇷 Français' };
 
-    // EJEMPLO DE SALIDA PERFECTA
-    const exampleOutput = `{
-  "title": "Gafas Oakley Speedcraft S3 Ahumadas Nuevas",
-  "description": "🇪🇸 Español\\nNUEVO SIN ETIQUETAS\\n✔ Gafas Oakley Speedcraft S3 con lentes ahumadas\\n✔ 100% originales, sin uso\\n✔ Incluye estuche original\\n Precio: 44.99 €\\n──────────\\n🇬🇧 English\\nNEW WITHOUT TAGS\\n✔ Oakley Speedcraft S3 sunglasses with smoked lenses\\n✔ 100% authentic, unused\\n✔ Includes original case\\n💰 Price: €44.99\\n──────────\\n🇫🇷 Français\\nNEUF SANS ÉTIQUETTE\\n✔ Lunettes Oakley Speedcraft S3 avec verres fumés\\n✔ 100% authentiques, non utilisées\\n✔ Étui original inclus\\n Prix : 44.99 €"
-}`;
-
-    // PROMPT DIFERENCIADO
     let prompt = '';
+    
     if (presetText && presetText.trim().length > 10) {
-      prompt = `Eres un editor experto de anuncios de segunda mano.
-Tienes una DESCRIPCIÓN BASE (preset) y unos CAMBIOS a aplicar.
+      // MODO PRESET: La IA debe REESCRIBIR el preset aplicando los cambios
+      prompt = `Eres un editor de anuncios de segunda mano. Tienes un PRESET (plantilla) y debes EDITARLO aplicando los CAMBIOS indicados.
 
-REGLAS ESTRICTAS:
-1. MANTÉN la estructura, formato y estilo de la DESCRIPCIÓN BASE.
-2. MANTÉN el estado del preset (ej: NUEVO SIN ETIQUETAS) a menos que se especifique uno nuevo en los CAMBIOS.
-3. Aplica los CAMBIOS indicados modificando el texto del preset.
-4. Si los cambios incluyen nuevo precio, actualízalo al final de cada bloque.
-5. Cada bloque de idioma debe tener exactamente 3 viñetas con ✔.
-6. Devuelve SOLO un JSON válido, sin markdown.
+REGLAS CRÍTICAS:
+1. MANTÉN TODAS las líneas del preset que no necesiten cambiar.
+2. SOLO modifica las líneas que afecten los cambios (color, talla, modelo, etc.).
+3. NUNCA añadas texto genérico como "Revisar fotos", "Envíos rápidos", "Detalles adicionales".
+4. El título debe describir el producto REAL (marca, modelo, color nuevo), NO los cambios.
+5. Mantén el mismo formato: separadores ──────────, viñetas ✔, estado en MAYÚSCULAS, precio al final.
 
-FORMATO EXACTO DE SALIDA:
-${exampleOutput}
+EJEMPLO:
+Si el preset dice "Gafas azules" y el cambio es "en camaleón", el resultado debe ser "Gafas camaleón" (no "Revisar fotos").
 
-DESCRIPCIÓN BASE (preset):
+PRESET ORIGINAL:
 ${presetText}
 
 CAMBIOS A APLICAR:
-- Descripción: ${shortDesc || 'ninguno, mantener la base'}
-- Precio: ${price || 'mantener el de la base'}
-- Estado: ${condition || 'mantener el del preset'}
+- ${shortDesc || 'Ninguno, mantener todo igual'}
+- Precio: ${price || 'Mantener el del preset'}
+- Estado: ${condition || 'Mantener el del preset'}
 
-Responde SOLO con el JSON.`;
+Devuelve SOLO un JSON con:
+{
+  "title": "título del producto con los cambios aplicados (español, máx 60 chars)",
+  "description": "el preset completo reescrito con los cambios aplicados, manteniendo todos los idiomas y formato"
+}`;
     } else {
-      prompt = `Eres un experto en ventas de segunda mano (Vinted/Wallapop).
-Genera un anuncio profesional y limpio.
+      // MODO SIN PRESET: Generar desde cero
+      const langList = langs.map(l => langNames[l] || l).join(' / ');
+      prompt = `Eres un experto en ventas de segunda mano. Genera un anuncio profesional.
 
-REGLAS ESTRICTAS:
-1. title: SIEMPRE en español, máximo 60 caracteres. Incluye marca, modelo, color. SIN emojis.
-2. description: Un ÚNICO string con saltos de línea (\\n). Debe contener los idiomas: ${langList}.
-   - Cada bloque empieza con su bandera y nombre (🇪 Español / 🇬🇧 English / 🇫🇷 Français).
-   - Segunda línea: el ESTADO EN MAYÚSCULAS (ej: NUEVO SIN ETIQUETAS, MUY BUENO).
-   - Después, exactamente 3 viñetas con el símbolo ✔ (una por línea, describiendo el producto).
-   - Última línea del bloque con el precio: "💰 Precio: X €" / "💰 Price: €X" / "💰 Prix : X €".
-   - Separa los bloques con exactamente: ────────── (10 guiones).
+REGLAS:
+1. title: Español, máx 60 caracteres. Marca, modelo, color. SIN emojis.
+2. description: Un string con saltos de línea (\\n) en: ${langList}.
+   - Cada bloque: bandera + nombre del idioma.
+   - Segunda línea: ESTADO EN MAYÚSCULAS.
+   - 3 viñetas con ✔ describiendo el producto REAL (NUNCA texto genérico como "Revisar fotos").
+   - Última línea: precio (💰 Precio: X € / 💰 Price: €X / 💰 Prix : X €).
+   - Separa bloques con: ──────────
 
-FORMATO EXACTO DE SALIDA:
-${exampleOutput}
-
-DATOS DEL PRODUCTO:
+DATOS:
 - Producto: ${shortDesc || 'No especificado'}
 - Precio: ${price || 'No especificado'}
 - Estado: ${condition || 'No especificado'}
 
-Responde SOLO con el JSON, sin markdown.`;
+Devuelve SOLO JSON: {"title": "...", "description": "..."}`;
     }
 
     const parts = [{ text: prompt }];
@@ -245,7 +118,7 @@ Responde SOLO con el JSON, sin markdown.`;
           body: JSON.stringify({
             contents: [{ parts: parts }],
             generationConfig: { 
-              temperature: 0.2,
+              temperature: 0.15, // Más bajo = más fiel al preset
               maxOutputTokens: 2000,
               responseMimeType: "application/json",
               responseSchema: {
@@ -277,23 +150,36 @@ Responde SOLO con el JSON, sin markdown.`;
         if (!content) continue;
 
         console.log(`✅ Éxito con ${model}`);
+        console.log('Respuesta cruda:', content.substring(0, 500));
 
         const parsed = extractJson(content);
         if (parsed && parsed.title && parsed.description) {
-          const cleaned = validateAndClean(
-            parsed.title, 
-            parsed.description, 
-            langs, 
-            langNames, 
-            condition, 
-            price,
-            presetText
-          );
+          // Validación básica: si el título es igual al texto de cambios, rechazar
+          if (shortDesc && parsed.title.toLowerCase().trim() === shortDesc.toLowerCase().trim()) {
+            console.log('⚠️ Título = texto de cambios, rechazando');
+            continue;
+          }
           
-          console.log('✅ Descripción validada y limpiada');
+          // Si hay preset, verificar que la descripción mantiene contenido del preset
+          if (presetText && presetText.length > 20) {
+            // Extraer palabras clave del preset (ignorando conectores)
+            const presetWords = presetText.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !['para', 'con', 'las', 'los', 'una', 'uno', 'pero', 'sin', 'muy', 'bueno'].includes(w));
+            const descLower = parsed.description.toLowerCase();
+            const matchingWords = presetWords.filter(w => descLower.includes(w)).length;
+            const matchRatio = matchingWords / presetWords.length;
+            
+            console.log(`Match preset: ${matchingWords}/${presetWords.length} (${(matchRatio * 100).toFixed(0)}%)`);
+            
+            // Si coincide menos del 30%, la IA ignoró el preset
+            if (matchRatio < 0.3) {
+              console.log('⚠️ La IA ignoró el preset, reintentando...');
+              continue;
+            }
+          }
+          
           return Response.json({
-            title: cleaned.title,
-            description: cleaned.description
+            title: String(parsed.title).trim().substring(0, 60),
+            description: String(parsed.description).trim()
           });
         }
 
@@ -306,19 +192,39 @@ Responde SOLO con el JSON, sin markdown.`;
       }
     }
 
-    // FALLBACK LOCAL
-    console.log('⚠️ IA saturada. Fallback local.');
-    const fallbackDesc = langs.map((l, idx) => {
-      const name = langNames[l] || l;
-      const cond = condition ? condition.toUpperCase() : 'ESTADO NO ESPECIFICADO';
-      const priceText = price ? (l === 'en' ? `💰 Price: €${price}` : (l === 'fr' ? `💰 Prix : ${price} €` : `💰 Precio: ${price} €`)) : '';
-      const product = shortDesc || presetText || 'Producto en buen estado';
-      return `${name}\n${cond}\n✔ ${product}\n✔ Revisar fotos para más detalles\n✔ Envíos rápidos y seguros\n${priceText}`;
-    }).join('\n──────────\n');
+    // FALLBACK LOCAL: Si todo falla, aplicar cambios manualmente al preset
+    console.log('⚠️ IA saturada. Aplicando cambios manualmente al preset.');
+    
+    let fallbackDesc = presetText || '';
+    if (shortDesc && fallbackDesc) {
+      // Reemplazo simple: si el cambio menciona un color, reemplazar en el preset
+      const colorMatch = shortDesc.match(/(azules?|rojas?|negras?|blancas?|verdes?|camaleón|transparentes?|ahumadas?)/i);
+      if (colorMatch) {
+        // Reemplazar la mención de color anterior por el nuevo
+        const colors = ['azules', 'azul', 'rojas', 'rojo', 'negras', 'negro', 'transparentes', 'transparente', 'ahumadas', 'ahumado'];
+        colors.forEach(c => {
+          const regex = new RegExp(c, 'gi');
+          fallbackDesc = fallbackDesc.replace(regex, colorMatch[0]);
+        });
+      }
+    }
+    
+    // Actualizar precio si cambió
+    if (price && fallbackDesc) {
+      fallbackDesc = fallbackDesc.replace(/(\d+[.,]?\d*)\s*€/g, `${price} €`);
+    }
+    
+    // Actualizar estado si cambió
+    if (condition && fallbackDesc) {
+      const oldStates = ['NUEVO CON ETIQUETAS', 'NUEVO SIN ETIQUETAS', 'MUY BUENO', 'BUENO', 'SATISFACTORIO', 'NUEVAS', 'NUEVOS'];
+      oldStates.forEach(s => {
+        fallbackDesc = fallbackDesc.replace(new RegExp(s, 'gi'), condition.toUpperCase());
+      });
+    }
 
     return Response.json({
-      title: (shortDesc || presetText || "Producto en venta").substring(0, 60),
-      description: fallbackDesc,
+      title: shortDesc ? shortDesc.substring(0, 60) : (presetText ? presetText.split('\n')[0].substring(0, 60) : 'Producto en venta'),
+      description: fallbackDesc || 'Sin descripción disponible',
       _warning: "Generado con plantilla local"
     });
 
