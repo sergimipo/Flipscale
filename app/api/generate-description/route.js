@@ -72,6 +72,13 @@ function cleanTitle(title) {
     .replace(/["“”«»]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // Aplica mayúscula a la primera letra de cada palabra
+  t = t.split(' ').map(word => {
+    if (!word) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+
   if (t.length > 60) {
     const cut = t.slice(0, 60);
     const lastSpace = cut.lastIndexOf(' ');
@@ -305,7 +312,7 @@ function localPresetEdit({ presetText, shortDesc, price, condition }) {
   desc = applyCondition(desc, condition);
   desc = applyPrice(desc, price);
 
-  const title = titleFromPreset(desc) || cleanTitle(shortDesc) || 'Producto en venta';
+  const title = titleFromPreset(desc) || cleanTitle(shortDesc) || 'Producto En Venta';
   return { title, description: desc };
 }
 
@@ -320,7 +327,7 @@ function localNewTemplate({ langs, shortDesc, price, condition }) {
         ? l === 'en'
           ? `💰 Price: €${num}`
           : l === 'fr'
-          ? `💰 Prix : ${num} €`
+          ? ` Prix : ${num} €`
           : `💰 Precio: ${num} €`
         : '';
       const bullets =
@@ -333,7 +340,7 @@ function localNewTemplate({ langs, shortDesc, price, condition }) {
     })
     .join('\n────────\n');
 
-  return { title: cleanTitle(shortDesc) || 'Producto en venta', description: desc };
+  return { title: cleanTitle(shortDesc) || 'Producto En Venta', description: desc };
 }
 
 /* ============================================================
@@ -354,7 +361,7 @@ REGLAS PARA "description":
 1. Conserva EXACTAMENTE la estructura: mismos bloques de idioma, mismo orden, mismos emojis, viñetas, separadores y saltos de línea. No añadas ni quites bloques ni líneas.
 2. Aplica SOLO los cambios indicados. Todo lo que no se menciona se queda tal cual.
 3. Si cambia el COLOR: sustituye TODAS las menciones del color antiguo, en TODOS los idiomas, por el nuevo, adaptando género y número a cada idioma. Ejemplos: "gafas rojas" → "gafas azules"; "zapatillas negras" → "zapatillas blancas"; "sudadera roja" → "sudadera azul"; "pantalón negro" → "pantalón blanco"; "red" → "blue"; "rouges" → "bleues". Si hay otros colores que no cambian (detalles, logo, montura), déjalos.
-4. Si cambia el PRECIO: cámbialo solo en la línea del precio de cada bloque, manteniendo el formato de cada idioma (ej: "💰 Precio: 25 €", "💰 Price: €25", "💰 Prix : 25 €").
+4. Si cambia el PRECIO: cámbialo solo en la línea del precio de cada bloque, manteniendo el formato de cada idioma (ej: "💰 Precio: 25 €", " Price: €25", "💰 Prix : 25 €").
 5. Si cambia el ESTADO: sustituye la línea de estado en MAYÚSCULAS de cada bloque, traducida al idioma del bloque:
 ${STATES_PROMPT_TABLE}
 6. Si el cambio es de otro tipo (talla, modelo, defecto, accesorios...), aplícalo donde corresponda y corrige cualquier viñeta que quede contradictoria.
@@ -363,7 +370,8 @@ ${STATES_PROMPT_TABLE}
 REGLAS PARA "title":
 - En español, MÁXIMO 60 caracteres.
 - Describe el producto del anuncio base CON los cambios ya aplicados.
-- Formato: tipo de producto + marca + modelo + color (el NUEVO, con concordancia) + talla si aparece. Ejemplo: "Gafas de sol Oakley Speedcraft azules".
+- Formato: tipo de producto + marca + modelo + color (el NUEVO, con concordancia) + talla si aparece. Ejemplo: "Gafas De Sol Oakley Speedcraft Azules".
+- La primera letra de cada palabra debe ser MAYÚSCULA.
 - Sin emojis, sin comillas, sin precio, sin la palabra "Producto", no todo en mayúsculas.
 
 ANUNCIO BASE:
@@ -385,7 +393,8 @@ function buildNewPrompt({ langs, shortDesc, price, condition }) {
 
 REGLAS PARA "title":
 - En español, MÁXIMO 60 caracteres.
-- Formato: tipo de producto + marca + modelo + color + talla si se conoce. Ejemplo: "Zapatillas Nike Air Max 90 blancas talla 42".
+- Formato: tipo de producto + marca + modelo + color + talla si se conoce. Ejemplo: "Zapatillas Nike Air Max 90 Blancas Talla 42".
+- La primera letra de cada palabra debe ser MAYÚSCULA.
 - Sin emojis, sin comillas, sin precio, no todo en mayúsculas.
 
 REGLAS PARA "description":
@@ -395,7 +404,7 @@ REGLAS PARA "description":
 ${STATES_PROMPT_TABLE}
 - Después, 3 a 6 viñetas que empiezan por "✔" con información útil y veraz (marca, modelo, color, material, talla, detalles visibles en la foto). No inventes datos que no se vean ni se hayan dado.
 - Última línea del bloque: el precio ("💰 Precio: X €", "💰 Price: €X", "💰 Prix : X €"). Omítela si no hay precio.
-- Separa los bloques con una línea que contenga solo: ────────
+- Separa los bloques con una línea que contenga solo: ───────
 
 DATOS:
 - Producto: ${shortDesc || 'No especificado (deducir de la imagen)'}
@@ -522,7 +531,7 @@ export async function POST(req) {
 
           console.log(`✅ OK con ${model}`);
           return Response.json({
-            title: cleanTitle(parsed.title) || 'Producto en venta',
+            title: cleanTitle(parsed.title) || 'Producto En Venta',
             description,
             _model: model,
           });
