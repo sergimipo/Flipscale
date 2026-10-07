@@ -2,10 +2,6 @@ export const maxDuration = 60;
 
 /* ============================================================
    CONFIGURACIÓN
-   ============================================================
-   Modelos: se leen de la variable de entorno GEMINI_MODELS en Vercel
-   (separados por comas). Si no existe, se usa esta lista por defecto.
-   Si Google retira un modelo, solo cambias la variable y redespliegas.
    ============================================================ */
 const DEFAULT_MODELS = 'gemini-3.1-flash-lite,gemini-3-flash-preview,gemini-2.5-flash';
 const REQUEST_TIMEOUT_MS = 18000;
@@ -127,8 +123,7 @@ function extractJson(text) {
 }
 
 /* ============================================================
-   EDICIÓN LOCAL (precio, estado, color) — usada para reforzar
-   el precio y como plan B si la IA no responde
+   EDICIÓN LOCAL Y CORRECCIONES DETERMINISTAS
    ============================================================ */
 function detectLang(line) {
   const l = String(line);
@@ -139,23 +134,29 @@ function detectLang(line) {
   return null;
 }
 
-/* Cambia el número SOLO en la línea del precio, respetando el formato de cada idioma */
-function applyPrice(text, price) {
-  const num = cleanPrice(price);
-  if (!num || !text) return text;
-  return text
-    .split('\n')
-    .map((line) => {
-      const isPriceLine = /💰/.test(line) || /^\s*(precio|price|prix)\b/i.test(line);
-      if (isPriceLine && /\d/.test(line)) return line.replace(/\d+(?:[.,]\d+)?/, num);
-      return line;
-    })
-    .join('\n');
-}
-
 function findState(condition) {
   const c = stripAccents(String(condition || '').toLowerCase()).trim();
   if (!c) return null;
+  
+  // Mapeo de variantes comunes a la key estándar para ser 100% robustos
+  const aliasMap = {
+    'buen estado': 'bueno',
+    'bueno': 'bueno',
+    'muy buen estado': 'muy bueno',
+    'muy bueno': 'muy bueno',
+    'nuevo con etiquetas': 'nuevo con etiquetas',
+    'nuevo': 'nuevo sin etiquetas',
+    'nuevo sin etiquetas': 'nuevo sin etiquetas',
+    'satisfactorio': 'satisfactorio',
+    'aceptable': 'satisfactorio'
+  };
+
+  for (const [alias, key] of Object.entries(aliasMap)) {
+    if (c.includes(alias)) {
+      return STATES.find((s) => s.key === key) || null;
+    }
+  }
+  
   return STATES.find((s) => c.includes(s.key)) || null;
 }
 
@@ -164,7 +165,7 @@ function stateText(condition, lang) {
   return found ? found[lang] || found.es : String(condition).toUpperCase();
 }
 
-/* Sustituye la línea de estado (la primera línea en MAYÚSCULAS tras la cabecera de idioma) */
+/* Sobrescribe la línea de estado con la traducción correcta, ignorando a la IA */
 function applyCondition(text, condition) {
   if (!condition || !String(condition).trim() || !text) return text;
   let lang = 'es';
@@ -181,9 +182,22 @@ function applyCondition(text, condition) {
       if (!line.trim()) return line;
       if (expectState) {
         expectState = false;
-        const isStateLine = line === line.toUpperCase() && /\p{L}/u.test(line) && !/[✔✅💰]/.test(line);
-        if (isStateLine) return stateText(condition, lang);
+        // Forzamos que sea el estado correcto en el idioma del bloque
+        return stateText(condition, lang);
       }
+      return line;
+    })
+    .join('\n');
+}
+
+function applyPrice(text, price) {
+  const num = cleanPrice(price);
+  if (!num || !text) return text;
+  return text
+    .split('\n')
+    .map((line) => {
+      const isPriceLine = /💰/.test(line) || /^\s*(precio|price|prix)\b/i.test(line);
+      if (isPriceLine && /\d/.test(line)) return line.replace(/\d+(?:[.,]\d+)?/, num);
       return line;
     })
     .join('\n');
@@ -240,7 +254,6 @@ function convertWord(match, before, from, to, lang) {
   if (masc !== fem) {
     isFem = lower === fem;
   } else {
-    // color invariable (azul, verde...): deducimos el género por la palabra anterior
     const prev = (before.trim().split(/\s+/).pop() || '').toLowerCase();
     isFem = lang === 'es' ? /as?$/.test(prev) : /es?$/.test(prev);
   }
@@ -263,7 +276,6 @@ function recolor(text, from, to) {
     .join('\n');
 }
 
-/* Color dominante del preset (el que más se repite), distinto del nuevo */
 function dominantColor(text, exclude) {
   let best = null;
   let bestCount = 0;
@@ -300,10 +312,8 @@ function titleFromPreset(text) {
   return '';
 }
 
-/* Plan B para el modo preset: aplica los cambios sin IA */
 function localPresetEdit({ presetText, shortDesc, price, condition }) {
   let desc = presetText;
-
   const newColor = shortDesc ? findColorInText(shortDesc) : null;
   if (newColor) {
     const oldColor = dominantColor(desc, newColor);
@@ -311,12 +321,10 @@ function localPresetEdit({ presetText, shortDesc, price, condition }) {
   }
   desc = applyCondition(desc, condition);
   desc = applyPrice(desc, price);
-
   const title = titleFromPreset(desc) || cleanTitle(shortDesc) || 'Producto En Venta';
   return { title, description: desc };
 }
 
-/* Plan B para el modo sin preset */
 function localNewTemplate({ langs, shortDesc, price, condition }) {
   const num = cleanPrice(price);
   const desc = langs
@@ -324,18 +332,14 @@ function localNewTemplate({ langs, shortDesc, price, condition }) {
       const name = LANG_NAMES[l] || l;
       const cond = condition ? stateText(condition, l) : '';
       const priceLine = num
-        ? l === 'en'
-          ? `💰 Price: €${num}`
-          : l === 'fr'
-          ? ` Prix : ${num} €`
-          : `💰 Precio: ${num} €`
+        ? l === 'en' ? `💰 Price: €${num}`
+        : l === 'fr' ? `💰 Prix : ${num} €`
+        : `💰 Precio: ${num} €`
         : '';
       const bullets =
-        l === 'en'
-          ? [shortDesc || 'Item in good condition', 'Check the photos for more details', 'Fast and safe shipping']
-          : l === 'fr'
-          ? [shortDesc || 'Article en bon état', 'Voir les photos pour plus de détails', 'Envoi rapide et sécurisé']
-          : [shortDesc || 'Producto en buen estado', 'Revisa las fotos para más detalles', 'Envíos rápidos y seguros'];
+        l === 'en' ? [shortDesc || 'Item in good condition', 'Check the photos for more details', 'Fast and safe shipping']
+        : l === 'fr' ? [shortDesc || 'Article en bon état', 'Voir les photos pour plus de détails', 'Envoi rapide et sécurisé']
+        : [shortDesc || 'Producto en buen estado', 'Revisa las fotos para más detalles', 'Envíos rápidos y seguros'];
       return [name, cond, ...bullets.map((b) => `✔ ${b}`), priceLine].filter(Boolean).join('\n');
     })
     .join('\n────────\n');
@@ -346,33 +350,30 @@ function localNewTemplate({ langs, shortDesc, price, condition }) {
 /* ============================================================
    PROMPTS
    ============================================================ */
-const STATES_PROMPT_TABLE = STATES.map((s) => `  · ${s.es} → EN: ${s.en} → FR: ${s.fr}`).join('\n');
+const STATES_PROMPT_TABLE = `
+- Nuevo con etiquetas: EN = NEW WITH TAGS, FR = NEUF AVEC ÉTIQUETTE
+- Nuevo sin etiquetas: EN = NEW WITHOUT TAGS, FR = NEUF SANS ÉTIQUETTE
+- Muy bueno: EN = VERY GOOD, FR = TRÈS BON ÉTAT
+- Bueno: EN = GOOD, FR = BON ÉTAT
+- Satisfactorio: EN = SATISFACTORY, FR = SATISFAISANT
+`;
 
 function buildPresetPrompt({ presetText, shortDesc, price, condition }) {
   const changes = [];
-  if (shortDesc && String(shortDesc).trim()) changes.push(`- Cambio pedido por el usuario: ${String(shortDesc).trim()}`);
+  if (shortDesc && String(shortDesc).trim()) changes.push(`- Cambio pedido: ${String(shortDesc).trim()}`);
   if (cleanPrice(price)) changes.push(`- Nuevo precio: ${cleanPrice(price)} €`);
   if (condition && String(condition).trim()) changes.push(`- Nuevo estado: ${String(condition).trim()}`);
   const changesText = changes.length ? changes.join('\n') : '- Ninguno';
 
-  return `Eres un editor de anuncios de segunda mano para Vinted. Recibes un ANUNCIO BASE ya escrito y una lista de CAMBIOS. Debes devolver el MISMO anuncio con los cambios aplicados, más un título nuevo.
+  return `Eres un editor de anuncios de segunda mano. Recibes un ANUNCIO BASE y una lista de CAMBIOS.
 
 REGLAS PARA "description":
-1. Conserva EXACTAMENTE la estructura: mismos bloques de idioma, mismo orden, mismos emojis, viñetas, separadores y saltos de línea. No añadas ni quites bloques ni líneas.
-2. Aplica SOLO los cambios indicados. Todo lo que no se menciona se queda tal cual.
-3. Si cambia el COLOR: sustituye TODAS las menciones del color antiguo, en TODOS los idiomas, por el nuevo, adaptando género y número a cada idioma. Ejemplos: "gafas rojas" → "gafas azules"; "zapatillas negras" → "zapatillas blancas"; "sudadera roja" → "sudadera azul"; "pantalón negro" → "pantalón blanco"; "red" → "blue"; "rouges" → "bleues". Si hay otros colores que no cambian (detalles, logo, montura), déjalos.
-4. Si cambia el PRECIO: cámbialo solo en la línea del precio de cada bloque, manteniendo el formato de cada idioma (ej: "💰 Precio: 25 €", " Price: €25", "💰 Prix : 25 €").
-5. Si cambia el ESTADO: sustituye la línea de estado en MAYÚSCULAS de cada bloque, traducida al idioma del bloque:
+1. Conserva EXACTAMENTE la estructura: mismos bloques, orden, emojis, viñetas y separadores.
+2. Aplica SOLO los cambios indicados.
+3. Si cambia el COLOR: sustituye TODAS las menciones del color antiguo por el nuevo, adaptando género y número.
+4. Si cambia el PRECIO o ESTADO: cámbialo solo en su línea correspondiente, usando estas traducciones EXACTAS:
 ${STATES_PROMPT_TABLE}
-6. Si el cambio es de otro tipo (talla, modelo, defecto, accesorios...), aplícalo donde corresponda y corrige cualquier viñeta que quede contradictoria.
-7. Si los cambios son "Ninguno", devuelve el anuncio base sin modificar.
-
-REGLAS PARA "title":
-- En español, MÁXIMO 60 caracteres.
-- Describe el producto del anuncio base CON los cambios ya aplicados.
-- Formato: tipo de producto + marca + modelo + color (el NUEVO, con concordancia) + talla si aparece. Ejemplo: "Gafas De Sol Oakley Speedcraft Azules".
-- La primera letra de cada palabra debe ser MAYÚSCULA.
-- Sin emojis, sin comillas, sin precio, sin la palabra "Producto", no todo en mayúsculas.
+¡ADVERTENCIA CRÍTICA! NUNCA pongas "BON ÉTAT", "BON ESTAT" o "TRÈS BON" en el bloque de 🇪🇸 Español. El bloque de Español debe estar 100% en español (ej: "BUENO" o "MUY BUENO").
 
 ANUNCIO BASE:
 <<<
@@ -382,32 +383,30 @@ ${presetText}
 CAMBIOS:
 ${changesText}
 
-Si hay una imagen adjunta, úsala solo para confirmar datos que el texto no aclare; los cambios del usuario siempre mandan.
-
-Devuelve SOLO un objeto JSON: {"title": "...", "description": "..."}. En "description" usa saltos de línea reales (\\n).`;
+Devuelve SOLO un objeto JSON: {"title": "...", "description": "..."}.`;
 }
 
 function buildNewPrompt({ langs, shortDesc, price, condition }) {
   const langList = langs.map((l) => LANG_NAMES[l] || l).join(', ');
-  return `Eres un experto en ventas de segunda mano en Vinted. Genera un anuncio profesional.
+  return `Eres un experto en ventas de segunda mano. Genera un anuncio profesional.
 
 REGLAS PARA "title":
 - En español, MÁXIMO 60 caracteres.
-- Formato: tipo de producto + marca + modelo + color + talla si se conoce. Ejemplo: "Zapatillas Nike Air Max 90 Blancas Talla 42".
-- La primera letra de cada palabra debe ser MAYÚSCULA.
-- Sin emojis, sin comillas, sin precio, no todo en mayúsculas.
+- Formato: Tipo de producto + Marca + Modelo + Color + Talla. Ej: "Zapatillas Nike Air Max 90 Blancas Talla 42".
+- La primera letra de cada palabra debe ser MAYÚSCULA. Sin emojis ni comillas.
 
 REGLAS PARA "description":
-- Un único string con saltos de línea (\\n), con un bloque por idioma en este orden: ${langList}.
-- Cada bloque empieza con el nombre del idioma tal cual (ej: ${LANG_NAMES.es}).
-- Segunda línea del bloque: el ESTADO EN MAYÚSCULAS, traducido al idioma del bloque:
+- Un único string con saltos de línea (\\n), con un bloque por idioma: ${langList}.
+- Cada bloque empieza con el nombre del idioma (ej: 🇪🇸 Español).
+- Segunda línea: el ESTADO EN MAYÚSCULAS, traducido CORRECTAMENTE:
 ${STATES_PROMPT_TABLE}
-- Después, 3 a 6 viñetas que empiezan por "✔" con información útil y veraz (marca, modelo, color, material, talla, detalles visibles en la foto). No inventes datos que no se vean ni se hayan dado.
-- Última línea del bloque: el precio ("💰 Precio: X €", "💰 Price: €X", "💰 Prix : X €"). Omítela si no hay precio.
-- Separa los bloques con una línea que contenga solo: ───────
+¡ADVERTENCIA CRÍTICA! NUNCA pongas "BON ÉTAT" o "BON ESTAT" en el bloque de 🇪🇸 Español.
+- Después, 3 a 6 viñetas con "✔" con información real del producto.
+- Última línea: el precio ("💰 Precio: X €", "💰 Price: €X", "💰 Prix : X €").
+- Separa los bloques con: ────────
 
 DATOS:
-- Producto: ${shortDesc || 'No especificado (deducir de la imagen)'}
+- Producto: ${shortDesc || 'No especificado'}
 - Precio: ${cleanPrice(price) || 'No especificado'}
 - Estado: ${condition || 'No especificado'}
 
@@ -438,9 +437,7 @@ async function callGemini({ model, apiKey, parts, temperature, useSchema }) {
       }
     );
     let data = {};
-    try {
-      data = await res.json();
-    } catch (e) {}
+    try { data = await res.json(); } catch (e) {}
     return { ok: res.ok, status: res.status, data };
   } finally {
     clearTimeout(timer);
@@ -470,64 +467,60 @@ export async function POST(req) {
     const presetMode = typeof presetText === 'string' && presetText.trim().length > 10;
 
     const input = { presetText: presetMode ? presetText : '', shortDesc, price, condition, langs };
-
     const prompt = presetMode ? buildPresetPrompt(input) : buildNewPrompt(input);
+    
     const parts = [{ text: prompt }];
     const img = parseImage(imageBase64);
     if (img) parts.push({ inlineData: { mimeType: img.mime, data: img.data } });
 
-    const models = (process.env.GEMINI_MODELS || DEFAULT_MODELS)
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean);
-
+    const models = (process.env.GEMINI_MODELS || DEFAULT_MODELS).split(',').map((m) => m.trim()).filter(Boolean);
     const temperature = presetMode ? 0.2 : 0.4;
     const errors = [];
 
     for (const model of models) {
       for (const useSchema of [true, false]) {
         try {
-          const { ok, status, data } = await callGemini({
-            model,
-            apiKey: GEMINI_API_KEY,
-            parts,
-            temperature,
-            useSchema,
-          });
+          const { ok, status, data } = await callGemini({ model, apiKey: GEMINI_API_KEY, parts, temperature, useSchema });
 
           if (!ok) {
             const msg = data?.error?.message || `HTTP ${status}`;
             errors.push(`${model} [schema=${useSchema}] → ${status}: ${msg}`);
-            console.error(`❌ ${model} (${status}): ${msg}`);
-
-            if (status === 400 && /api key/i.test(msg)) {
-              return Response.json({ error: 'La GEMINI_API_KEY no es válida' }, { status: 500 });
-            }
-            if (status === 400 && useSchema) continue; // reintenta el mismo modelo sin responseSchema
+            if (status === 400 && /api key/i.test(msg)) return Response.json({ error: 'La GEMINI_API_KEY no es válida' }, { status: 500 });
+            if (status === 400 && useSchema) continue;
             if (status === 429 || status === 503) await sleep(800);
-            break; // siguiente modelo
+            break;
           }
 
           const parsed = extractJson(candidateText(data));
-          const finishReason = data?.candidates?.[0]?.finishReason;
-
           if (!parsed || !String(parsed.title).trim() || !String(parsed.description).trim()) {
-            errors.push(`${model}: respuesta sin JSON válido (finishReason: ${finishReason})`);
-            console.error(`⚠️ ${model}: respuesta inválida (finishReason: ${finishReason})`);
+            errors.push(`${model}: respuesta sin JSON válido`);
             break;
           }
 
           let description = String(parsed.description).trim();
 
-          // En modo preset, si el resultado es mucho más corto que el original, algo salió mal
           if (presetMode && description.length < presetText.trim().length * 0.5) {
-            errors.push(`${model}: descripción demasiado corta (${description.length} vs ${presetText.trim().length})`);
-            console.error(`⚠️ ${model}: descripción demasiado corta, probando siguiente modelo`);
+            errors.push(`${model}: descripción demasiado corta`);
             break;
           }
 
-          // Refuerzo determinista: el precio siempre es el que puso el usuario
+          // ==========================================
+          // BLINDAJE DETERMINISTA (Corrige a la IA)
+          // ==========================================
           description = applyPrice(description, price);
+          description = applyCondition(description, condition); // <-- ESTO FALTABA Y ERA LA CAUSA DEL ERROR
+
+          // Red de seguridad extra: si por algún motivo el bloque español tiene "BON ÉTAT", lo machacamos
+          if (description.includes('🇪🇸 Español') || description.includes('🇪🇸 Espanol')) {
+            description = description.replace(/(🇪🇸\s*Español\n)([^\n]*)(\n)/gi, (match, prefix, stateLine, suffix) => {
+              const upper = stateLine.toUpperCase().trim();
+              if (upper.includes('BON') || upper.includes('ÉTAT') || upper.includes('ESTAT')) {
+                const fallbackState = condition ? stateText(condition, 'es') : 'BUENO';
+                return `${prefix}${fallbackState}${suffix}`;
+              }
+              return match;
+            });
+          }
 
           console.log(`✅ OK con ${model}`);
           return Response.json({
@@ -538,7 +531,6 @@ export async function POST(req) {
         } catch (e) {
           const msg = e && e.name === 'AbortError' ? 'timeout' : e?.message || String(e);
           errors.push(`${model}: ${msg}`);
-          console.error(`⚠️ ${model}: ${msg}`);
           break;
         }
       }
@@ -550,13 +542,12 @@ export async function POST(req) {
       ? localPresetEdit({ presetText, shortDesc, price, condition })
       : localNewTemplate({ langs, shortDesc, price, condition });
 
-    const out = {
+    return Response.json({
       title: local.title,
       description: local.description || 'Sin descripción',
       _warning: 'Generado localmente (la IA no respondió). Revisa el resultado.',
-    };
-    if (process.env.DEBUG_AI === '1') out._debug = errors;
-    return Response.json(out);
+    });
+
   } catch (error) {
     console.error('ERROR GLOBAL:', error);
     return Response.json({ error: error.message || 'Error interno' }, { status: 500 });
